@@ -173,7 +173,11 @@ void Send(
 
 Fn<void(api::object_ptr<api::error>)> ErrorHandler(Fn<void(Error)> handler) {
 	return [=](api::object_ptr<api::error> error) {
-		handler(WrapError(error->message_));
+		const auto text = "TONLIB_ERROR_"
+			+ QString::number(error->code_).toStdString()
+			+ ": "
+			+ error->message_;
+		handler(WrapError(text));
 	};
 }
 
@@ -196,7 +200,6 @@ void Start(
 				path.toUtf8().toStdString())),
 		[=](api::object_ptr<api::ok>) { done(); },
 		ErrorHandler(error));
-
 }
 
 void CreateKey(
