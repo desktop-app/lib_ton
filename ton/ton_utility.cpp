@@ -114,15 +114,10 @@ void Client::send(
 }
 
 td::SecureString Client::localPassword() const {
-	static constexpr auto kLocalPasscodeSize = 256;
-	static auto kLocalPasscode = [] {
-		auto result = std::string(kLocalPasscodeSize, char());
-		for (auto &ch : result) {
-			ch = openssl::RandomValue<char>();
-		}
-		return result;
-	}();
-	return td::SecureString{ kLocalPasscode.data(), kLocalPasscode.size() };
+	static constexpr auto kLocalPasswordSize = 256;
+	using array = std::array<char, kLocalPasswordSize>;
+	static auto kLocalPassword = openssl::RandomValue<array>();
+	return td::SecureString{ kLocalPassword.data(), kLocalPassword.size() };
 }
 
 td::SecureString Client::mnemonicPassword() const {
