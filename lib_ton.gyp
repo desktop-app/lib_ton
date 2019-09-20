@@ -18,6 +18,23 @@
     'variables': {
       'src_loc': '.',
       'ton_loc': '<(libs_loc)/ton',
+      'ton_libs': [
+        '-ltdutils',
+        '-ltdactor',
+        '-ladnllite',
+        '-ltl_api',
+        '-lton_crypto',
+        '-lton_block',
+        '-ltl_tonlib_api',
+        '-ltonlib',
+        '-ltdnet',
+        '-lkeys',
+        '-llite-client-common',
+        '-ltl-utils',
+        '-ltl-lite-utils',
+        '-ltl_lite_api',
+        '-lcrc32c',
+      ],
     },
     'dependencies': [
       '<(submodules_loc)/lib_base/lib_base.gyp:lib_base',
@@ -55,27 +72,12 @@
       'include_dirs': [
         '<(src_loc)',
       ],
-      'libraries': [
-        '-ltdutils',
-        '-ltdactor',
-        '-ladnllite',
-        '-ltl_api',
-        '-lton_crypto',
-        '-lton_block',
-        '-ltl_tonlib_api',
-        '-ltonlib',
-        '-ltdnet',
-        '-lkeys',
-        '-llite-client-common',
-        '-ltl-utils',
-        '-ltl-lite-utils',
-        '-ltl_lite_api',
-        '-lcrc32c',
-      ],
       'conditions': [[ 'build_win', {
-        'libraries': [
-          '-lNormaliz',
-        ],
+        'link_settings': {
+          'libraries': [
+            '-lNormaliz',
+          ],
+        },
         'configurations': {
           'Debug': {
             'library_dirs': [
@@ -83,7 +85,6 @@
               '<(libs_loc)/ton/build-debug/tdactor/Debug',
               '<(libs_loc)/ton/build-debug/adnl/Debug',
               '<(libs_loc)/ton/build-debug/tl/Debug',
-              '<(libs_loc)/ton/build-debug/crypto/Debug',
               '<(libs_loc)/ton/build-debug/crypto/Debug',
               '<(libs_loc)/ton/build-debug/tl/Debug',
               '<(libs_loc)/ton/build-debug/tonlib/Debug',
@@ -100,7 +101,6 @@
               '<(libs_loc)/ton/build/tdactor/Release',
               '<(libs_loc)/ton/build/adnl/Release',
               '<(libs_loc)/ton/build/tl/Release',
-              '<(libs_loc)/ton/build/crypto/Release',
               '<(libs_loc)/ton/build/crypto/Release',
               '<(libs_loc)/ton/build/tl/Release',
               '<(libs_loc)/ton/build/tonlib/Release',
@@ -145,6 +145,16 @@
             ],
           },
         },
+      }], [ 'build_mac', {
+        'xcode_settings': {
+          'OTHER_LDFLAGS': [
+            '<@(ton_libs)',
+          ],
+        },
+      }, {
+        'libraries': [
+          '<@(ton_libs)',
+        ],
       }]],
     },
   }],
