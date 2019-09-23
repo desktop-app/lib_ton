@@ -197,6 +197,23 @@ void Start(
 		ErrorHandler(error));
 }
 
+void GetValidWords(
+		Fn<void(std::vector<QByteArray>)> done,
+		Fn<void(Error)> error) {
+	const auto got = [=](api::object_ptr<api::bip39Hints> hints) {
+		auto result = std::vector<QByteArray>();
+		result.reserve(hints->words_.size());
+		for (const auto &word : hints->words_) {
+			result.push_back(QByteArray::fromStdString(word));
+		}
+		done(std::move(result));
+	};
+	Send(
+		Make<api::getBip39Hints>(std::string()),
+		got,
+		ErrorHandler(error));
+}
+
 void CreateKey(
 		const QByteArray &seed,
 		Fn<void(Key)> done,

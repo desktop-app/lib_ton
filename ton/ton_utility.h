@@ -28,6 +28,9 @@ void Start(
 	const QString &path,
 	Fn<void()> done,
 	Fn<void(Error)> error);
+void GetValidWords(
+	Fn<void(std::vector<QByteArray>)> done,
+	Fn<void(Error)> error);
 void CreateKey(
 	const QByteArray &seed,
 	Fn<void(Key)> done,
