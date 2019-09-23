@@ -192,7 +192,8 @@ void Start(
 		Make<api::init>(
 			Make<api::options>(
 				std::string(),
-				path.toUtf8().toStdString())),
+				path.toUtf8().toStdString(),
+				false)),
 		[=](api::object_ptr<api::ok>) { done(); },
 		ErrorHandler(error));
 }
