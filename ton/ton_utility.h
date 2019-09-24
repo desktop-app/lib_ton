@@ -21,6 +21,7 @@ struct Error {
 
 struct Key {
 	QByteArray publicKey;
+	QByteArray secret;
 	std::vector<QByteArray> words;
 };
 

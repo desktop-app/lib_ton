@@ -225,15 +225,20 @@ void CreateKey(
 	}
 	const auto created = [=](api::object_ptr<api::key> key) {
 		const auto publicKey = QByteArray::fromStdString(key->public_key_);
+		const auto secret = QByteArray(key->secret_.data(), key->secret_.size());
 		const auto exported = [=](api::object_ptr<api::exportedKey> result) {
 			auto key = Key();
 			key.publicKey = publicKey;
+			key.secret = secret;
 			key.words.reserve(result->word_list_.size());
 			for (const auto &word : result->word_list_) {
 				key.words.push_back(QByteArray(word.data(), word.size()));
 			}
 			Send(
-				Make<api::deleteKey>(publicKey.toStdString()),
+				Make<api::deleteKey>(
+					Make<api::key>(
+						publicKey.toStdString(),
+						td::SecureString{ secret.data(), size_t(secret.size()) })),
 				[=](api::object_ptr<api::ok>) { done(key); },
 				ErrorHandler(error));
 		};
@@ -259,13 +264,17 @@ void CheckKey(
 		Fn<void()> done,
 		Fn<void(Error)> error) {
 	const auto publicKey = key.publicKey;
+	const auto secret = key.secret;
 	const auto imported = [=](api::object_ptr<api::key> result) {
 		if (publicKey.toStdString() != result->public_key_) {
 			error(WrapError("DIFFERENT_KEY"));
 			return;
 		}
 		Send(
-			Make<api::deleteKey>(publicKey.toStdString()),
+			Make<api::deleteKey>(
+				Make<api::key>(
+					publicKey.toStdString(),
+					td::SecureString{ secret.data(), size_t(secret.size()) })),
 			[=](api::object_ptr<api::ok>) { done(); },
 			ErrorHandler(error));
 	};
@@ -283,7 +292,10 @@ void CheckKey(
 			ErrorHandler(error));
 	};
 	Send(
-		Make<api::deleteKey>(publicKey.toStdString()),
+		Make<api::deleteKey>(
+			Make<api::key>(
+				publicKey.toStdString(),
+				td::SecureString{ secret.data(), size_t(secret.size()) })),
 		[=](api::object_ptr<api::ok>) { importKey(); },
 		[=](api::object_ptr<api::error>) { importKey(); });
 }
