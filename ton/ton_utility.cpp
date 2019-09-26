@@ -240,7 +240,7 @@ void CreateKey(
 						publicKey.toStdString(),
 						td::SecureString{ secret.data(), size_t(secret.size()) })),
 				[=](api::object_ptr<api::ok>) { done(key); },
-				ErrorHandler(error));
+				[=](api::object_ptr<api::error>) { done(key); });
 		};
 		Send(
 			Make<api::exportKey>(
@@ -264,40 +264,33 @@ void CheckKey(
 		Fn<void()> done,
 		Fn<void(Error)> error) {
 	const auto publicKey = key.publicKey;
-	const auto secret = key.secret;
 	const auto imported = [=](api::object_ptr<api::key> result) {
 		if (publicKey.toStdString() != result->public_key_) {
 			error(WrapError("DIFFERENT_KEY"));
 			return;
 		}
+		const auto secret = QByteArray(
+			result->secret_.data(),
+			int(result->secret_.size()));
 		Send(
 			Make<api::deleteKey>(
 				Make<api::key>(
 					publicKey.toStdString(),
 					td::SecureString{ secret.data(), size_t(secret.size()) })),
 			[=](api::object_ptr<api::ok>) { done(); },
-			ErrorHandler(error));
+			[=](api::object_ptr<api::error>) { done(); });
 	};
-	const auto importKey = [=] {
-		auto words = std::vector<td::SecureString>();
-		for (const auto &word : key.words) {
-			words.emplace_back(word.data(), word.size());
-		}
-		Send(
-			Make<api::importKey>(
-				GlobalClient->localPassword(),
-				GlobalClient->mnemonicPassword(),
-				Make<api::exportedKey>(std::move(words))),
-			imported,
-			ErrorHandler(error));
-	};
+	auto words = std::vector<td::SecureString>();
+	for (const auto &word : key.words) {
+		words.emplace_back(word.data(), word.size());
+	}
 	Send(
-		Make<api::deleteKey>(
-			Make<api::key>(
-				publicKey.toStdString(),
-				td::SecureString{ secret.data(), size_t(secret.size()) })),
-		[=](api::object_ptr<api::ok>) { importKey(); },
-		[=](api::object_ptr<api::error>) { importKey(); });
+		Make<api::importKey>(
+			GlobalClient->localPassword(),
+			GlobalClient->mnemonicPassword(),
+			Make<api::exportedKey>(std::move(words))),
+		imported,
+		ErrorHandler(error));
 }
 
 void Finish() {
