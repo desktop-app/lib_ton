@@ -9,6 +9,7 @@
 #include "base/assertion.h"
 #include "base/flat_map.h"
 #include "base/overload.h"
+#include "ton_tl_conversion.h"
 
 #include <crl/crl_on_main.h>
 #include <QtCore/QMutex>
@@ -19,6 +20,7 @@
 #undef signals
 
 #include <auto/tl/tonlib_api.hpp>
+#include <auto/tl/tonlib_api.h>
 #include <tonlib/Client.h>
 
 #include "base/openssl_help.h"
@@ -42,8 +44,8 @@ public:
 		api::object_ptr<api::Function> request,
 		FnMut<void(api::object_ptr<api::Object>)> handler);
 
-	td::SecureString localPassword() const;
-	td::SecureString mnemonicPassword() const;
+	TLsecureString localPassword() const;
+	TLsecureString mnemonicPassword() const;
 
 private:
 	void check();
@@ -61,37 +63,18 @@ private:
 
 };
 
-template <typename Type, typename ...Args>
-auto Make(Args &&...args) {
-	return api::make_object<Type>(std::forward<Args>(args)...);
-}
-
-template <typename Converted>
-api::object_ptr<Converted> TakeAs(api::object_ptr<api::Object> &object) {
-	return api::move_object_as<Converted>(std::move(object));
-}
-
-Error WrapError(std::string message) {
-	return Error{ QString::fromStdString(message) };
-}
-
-template <typename Type, typename ...Handlers>
-auto Match(Type &&value, Handlers &&...handlers) {
-	return api::downcast_call(
-		value,
-		base::overload(std::forward<Handlers>(handlers)...));
-}
-
 Client::Client() : _thread([=] { check(); }) {
 }
 
 Client::~Client() {
 	_finished = true;
-	send(Make<api::close>(), [](auto&&) {});
+	send(tl_to(TLclose()), [](auto&&) {});
 	_thread.join();
 
 	for (auto &[id, handler] : _handlers) {
-		handler(Make<api::error>(kLocalErrorCode, "TON_INSTANCE_DESTROYED"));
+		handler(tl_to(make_error(
+			tl::make_int(kLocalErrorCode),
+			tl::make_string("TON_INSTANCE_DESTROYED"))));
 	}
 }
 
@@ -113,15 +96,17 @@ void Client::send(
 	_api.send({ requestId, std::move(request) });
 }
 
-td::SecureString Client::localPassword() const {
+TLsecureString Client::localPassword() const {
 	static constexpr auto kLocalPasswordSize = 256;
 	using array = std::array<char, kLocalPasswordSize>;
 	static auto kLocalPassword = openssl::RandomValue<array>();
-	return td::SecureString{ kLocalPassword.data(), kLocalPassword.size() };
+	return TLsecureString{ QByteArray::fromRawData(
+		kLocalPassword.data(),
+		kLocalPassword.size()) };
 }
 
-td::SecureString Client::mnemonicPassword() const {
-	return td::SecureString();
+TLsecureString Client::mnemonicPassword() const {
+	return TLsecureString{ QByteArray() };
 }
 
 void Client::check() {
@@ -147,32 +132,40 @@ void Client::check() {
 
 template <typename Request>
 void Send(
-		api::object_ptr<Request> request,
-		FnMut<void(typename Request::ReturnType)> done,
-		FnMut<void(api::object_ptr<api::error>)> error) {
-	using ReturnType = typename Request::ReturnType::element_type;
+		const Request &request,
+		FnMut<void(typename Request::ResponseType)> done,
+		FnMut<void(const TLerror &)> error) {
 	if (!GlobalClient) {
-		error(Make<api::error>(kLocalErrorCode, "TON_INSTANCE_NOT_STARTED"));
+		error(make_error(
+			tl::make_int(kLocalErrorCode),
+			tl::make_string("TON_INSTANCE_NOT_STARTED")));
 		return;
 	}
+	auto converted = tl_to(request);
+	using RequestPointer = std::decay_t<decltype(converted)>;
+	using ReturnType = typename RequestPointer::element_type::ReturnType::element_type;
 	auto handler = [done = std::move(done), error = std::move(error)](
 			api::object_ptr<api::Object> response) mutable {
 		if (response->get_id() == api::error::ID) {
-			error(TakeAs<api::error>(response));
+			error(tl_from(
+				api::move_object_as<api::error>(std::move(response))));
 		} else {
-			done(TakeAs<ReturnType>(response));
+			done(tl_from(
+				api::move_object_as<ReturnType>(std::move(response))));
 		}
 	};
-	GlobalClient->send(std::move(request), std::move(handler));
+	GlobalClient->send(std::move(converted), std::move(handler));
 }
 
-Fn<void(api::object_ptr<api::error>)> ErrorHandler(Fn<void(Error)> handler) {
-	return [=](api::object_ptr<api::error> error) {
-		const auto text = "TONLIB_ERROR_"
-			+ QString::number(error->code_).toStdString()
-			+ ": "
-			+ error->message_;
-		handler(WrapError(text));
+Fn<void(const TLerror &)> ErrorHandler(Fn<void(Error)> handler) {
+	return [=](const TLerror &error) {
+		error.match([&](const TLDerror &data) {
+			const auto text = "TONLIB_ERROR_"
+				+ QString::number(data.vcode().v)
+				+ ": "
+				+ tl::utf16(data.vmessage());
+			handler(Error{ text });
+		});
 	};
 }
 
@@ -183,34 +176,35 @@ void Start(
 		Fn<void()> done,
 		Fn<void(Error)> error) {
 	if (GlobalClient) {
-		error(WrapError("TON_INSTANCE_ALREADY_STARTED"));
+		error(Error{ "TON_INSTANCE_ALREADY_STARTED" });
 		return;
 	}
 	GlobalClient = std::make_unique<Client>();
-
 	Send(
-		Make<api::init>(
-			Make<api::options>(
-				std::string(),
-				path.toUtf8().toStdString(),
-				false)),
-		[=](api::object_ptr<api::ok>) { done(); },
+		TLinit(
+			make_options(
+				tl::make_string(),
+				tl::make_string(path),
+				make_boolFalse())),
+		[=](const TLok &) { done(); },
 		ErrorHandler(error));
 }
 
 void GetValidWords(
 		Fn<void(std::vector<QByteArray>)> done,
 		Fn<void(Error)> error) {
-	const auto got = [=](api::object_ptr<api::bip39Hints> hints) {
-		auto result = std::vector<QByteArray>();
-		result.reserve(hints->words_.size());
-		for (const auto &word : hints->words_) {
-			result.push_back(QByteArray::fromStdString(word));
-		}
-		done(std::move(result));
+	const auto got = [=](const TLbip39Hints &result) {
+		result.match([&](const TLDbip39Hints &data) {
+			auto list = std::vector<QByteArray>();
+			list.reserve(data.vwords().v.size());
+			for (const auto &word : data.vwords().v) {
+				list.push_back(word.v);
+			}
+			done(std::move(list));
+		});
 	};
 	Send(
-		Make<api::getBip39Hints>(std::string()),
+		TLgetBip39Hints(tl::make_string()),
 		got,
 		ErrorHandler(error));
 }
@@ -219,44 +213,53 @@ void CreateKey(
 		const QByteArray &seed,
 		Fn<void(Key)> done,
 		Fn<void(Error)> error) {
+
 	if (!GlobalClient) {
-		error(WrapError("TON_INSTANCE_NOT_STARTED"));
+		error(Error{ "TON_INSTANCE_NOT_STARTED" });
 		return;
 	}
-	const auto created = [=](api::object_ptr<api::key> key) {
-		const auto publicKey = QByteArray::fromStdString(key->public_key_);
-		const auto secret = QByteArray(key->secret_.data(), key->secret_.size());
-		const auto exported = [=](api::object_ptr<api::exportedKey> result) {
-			auto key = Key();
-			key.publicKey = publicKey;
-			key.secret = secret;
-			key.words.reserve(result->word_list_.size());
-			for (const auto &word : result->word_list_) {
-				key.words.push_back(QByteArray(word.data(), word.size()));
-			}
-			Send(
-				Make<api::deleteKey>(
-					Make<api::key>(
-						publicKey.toStdString(),
-						td::SecureString{ secret.data(), size_t(secret.size()) })),
-				[=](api::object_ptr<api::ok>) { done(key); },
-				[=](api::object_ptr<api::error>) { done(key); });
+	const auto deleteAfterCreate = [=](const Key &key) {
+		Send(
+			TLdeleteKey(make_key(
+				tl::make_bytes(key.publicKey),
+				TLsecureString{ key.secret })),
+			[=](const TLok &) { done(key); },
+			[=](const TLerror &) { done(key); });
+	};
+	const auto created = [=](const TLDkey &result) {
+		const auto publicKey = result.vpublic_key().v;
+		const auto secret = result.vsecret().v;
+		const auto exported = [=](const TLexportedKey &result) {
+			result.match([&](const TLDexportedKey &data) {
+				auto key = Key();
+				key.publicKey = publicKey;
+				key.secret = secret;
+				key.words.reserve(data.vword_list().v.size());
+				for (const auto &word : data.vword_list().v) {
+					key.words.push_back(word.v);
+				}
+				deleteAfterCreate(key);
+			});
 		};
 		Send(
-			Make<api::exportKey>(
-				Make<api::inputKey>(
-					std::move(key),
-					GlobalClient->localPassword())),
+			TLexportKey(make_inputKey(
+				make_key(
+					tl::make_bytes(publicKey),
+					TLsecureString{ secret }),
+				GlobalClient->localPassword())),
 			exported,
 			ErrorHandler(error));
 	};
+	const auto createdWrap = [=](const TLkey &result) {
+		result.match(created);
+	};
 	Send(
-		Make<api::createNewKey>(
+		TLcreateNewKey(
 			GlobalClient->localPassword(),
 			GlobalClient->mnemonicPassword(),
-			td::SecureString{ seed.data(), size_t(seed.size()) }),
-				created,
-				ErrorHandler(error));
+			TLsecureString{ seed }),
+		createdWrap,
+		ErrorHandler(error));
 }
 
 void CheckKey(
@@ -264,32 +267,35 @@ void CheckKey(
 		Fn<void()> done,
 		Fn<void(Error)> error) {
 	const auto publicKey = key.publicKey;
-	const auto imported = [=](api::object_ptr<api::key> result) {
-		if (publicKey.toStdString() != result->public_key_) {
-			error(WrapError("DIFFERENT_KEY"));
+	auto words = QVector<TLsecureString>();
+	for (const auto &word : key.words) {
+		words.push_back(TLsecureString{ word });
+	}
+
+	const auto imported = [=](const TLDkey &result) {
+		if (publicKey != result.vpublic_key().v) {
+			error(Error{ "DIFFERENT_KEY" });
 			return;
 		}
-		const auto secret = QByteArray(
-			result->secret_.data(),
-			int(result->secret_.size()));
+		const auto secret = result.vsecret().v;
 		Send(
-			Make<api::deleteKey>(
-				Make<api::key>(
-					publicKey.toStdString(),
-					td::SecureString{ secret.data(), size_t(secret.size()) })),
-			[=](api::object_ptr<api::ok>) { done(); },
-			[=](api::object_ptr<api::error>) { done(); });
+			TLdeleteKey(make_key(
+				tl::make_bytes(publicKey),
+				TLsecureString{ secret })),
+			[=](const TLok &) { done(); },
+			[=](const TLerror &) { done(); });
 	};
-	auto words = std::vector<td::SecureString>();
-	for (const auto &word : key.words) {
-		words.emplace_back(word.data(), word.size());
-	}
+	const auto importedWrap = [=](const TLkey &result) {
+		result.match(imported);
+	};
+
 	Send(
-		Make<api::importKey>(
+		TLimportKey(
 			GlobalClient->localPassword(),
 			GlobalClient->mnemonicPassword(),
-			Make<api::exportedKey>(std::move(words))),
-		imported,
+			make_exportedKey(tl::make_vector<TLsecureString>(
+				std::move(words)))),
+		importedWrap,
 		ErrorHandler(error));
 }
 
