@@ -219,11 +219,13 @@ void CreateKey(
 		error(Error{ "TON_INSTANCE_NOT_STARTED" });
 		return;
 	}
-	const auto deleteAfterCreate = [=](const Key &key) {
+	const auto deleteAfterCreate = [=](
+			const Key &key,
+			const QByteArray &secret) {
 		Send(
 			TLdeleteKey(make_key(
 				tl::make_bytes(key.publicKey),
-				TLsecureString{ key.secret })),
+				TLsecureString{ secret })),
 			[=](const TLok &) { done(key); },
 			[=](const TLerror &) { done(key); });
 	};
@@ -234,12 +236,11 @@ void CreateKey(
 			result.match([&](const TLDexportedKey &data) {
 				auto key = Key();
 				key.publicKey = publicKey;
-				key.secret = secret;
 				key.words.reserve(data.vword_list().v.size());
 				for (const auto &word : data.vword_list().v) {
 					key.words.push_back(word.v);
 				}
-				deleteAfterCreate(key);
+				deleteAfterCreate(key, secret);
 			});
 		};
 		Send(
@@ -264,27 +265,23 @@ void CreateKey(
 }
 
 void CheckKey(
-		const Key &key,
-		Fn<void()> done,
+		const std::vector<QByteArray> &words,
+		Fn<void(QByteArray)> done,
 		Fn<void(Error)> error) {
-	const auto publicKey = key.publicKey;
-	auto words = QVector<TLsecureString>();
-	for (const auto &word : key.words) {
-		words.push_back(TLsecureString{ word });
+	auto wrapped = QVector<TLsecureString>();
+	for (const auto &word : words) {
+		wrapped.push_back(TLsecureString{ word });
 	}
 
 	const auto imported = [=](const TLDkey &result) {
-		if (publicKey != result.vpublic_key().v) {
-			error(Error{ "DIFFERENT_KEY" });
-			return;
-		}
+		const auto publicKey = result.vpublic_key().v;
 		const auto secret = result.vsecret().v;
 		Send(
 			TLdeleteKey(make_key(
 				tl::make_bytes(publicKey),
 				TLsecureString{ secret })),
-			[=](const TLok &) { done(); },
-			[=](const TLerror &) { done(); });
+			[=](const TLok &) { done(publicKey); },
+			[=](const TLerror &) { done(publicKey); });
 	};
 	const auto importedWrap = [=](const TLkey &result) {
 		result.match(imported);
@@ -295,7 +292,7 @@ void CheckKey(
 			GlobalClient->localPassword(),
 			GlobalClient->mnemonicPassword(),
 			make_exportedKey(tl::make_vector<TLsecureString>(
-				std::move(words)))),
+				std::move(wrapped)))),
 		importedWrap,
 		ErrorHandler(error));
 }

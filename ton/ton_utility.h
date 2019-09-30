@@ -21,7 +21,6 @@ struct Error {
 
 struct Key {
 	QByteArray publicKey;
-	QByteArray secret;
 	std::vector<QByteArray> words;
 };
 
@@ -34,8 +33,8 @@ void CreateKey(
 	Fn<void(Key)> done,
 	Fn<void(Error)> error);
 void CheckKey(
-	const Key &key,
-	Fn<void()> done,
+	const std::vector<QByteArray> &words,
+	Fn<void(QByteArray)> done,
 	Fn<void(Error)> error);
 void Finish();
 
