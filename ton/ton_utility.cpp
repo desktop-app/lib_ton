@@ -56,7 +56,6 @@ private:
 	base::flat_map<
 		uint64,
 		FnMut<void(api::object_ptr<api::Object>)>> _handlers;
-	QString _path;
 
 	std::thread _thread;
 	std::atomic<bool> _finished = false;
@@ -82,12 +81,6 @@ void Client::send(
 		api::object_ptr<api::Function> request,
 		FnMut<void(api::object_ptr<api::Object>)> handler) {
 	const auto requestId = ++_requestIdAutoIncrement;
-
-	if (request->get_id() == api::init::ID) {
-		const auto init = static_cast<api::init*>(request.get());
-		const auto &folder = init->options_->keystore_directory_;
-		_path = QString::fromUtf8(folder.data(), folder.size());
-	}
 
 	QMutexLocker lock(&_mutex);
 	_handlers.emplace(requestId, std::move(handler));
@@ -171,10 +164,7 @@ Fn<void(const TLerror &)> ErrorHandler(Fn<void(Error)> handler) {
 
 } // namespace
 
-void Start(
-		const QString &path,
-		Fn<void()> done,
-		Fn<void(Error)> error) {
+void Start(Fn<void()> done, Fn<void(Error)> error) {
 	if (GlobalClient) {
 		error(Error{ "TON_INSTANCE_ALREADY_STARTED" });
 		return;
@@ -183,9 +173,8 @@ void Start(
 	Send(
 		TLinit(
 			make_options(
-				tl::make_string(),
-				tl::make_string(path),
-				make_boolFalse())),
+				nullptr,
+				make_keyStoreTypeInMemory())),
 		[=](const TLok &) { done(); },
 		ErrorHandler(error));
 }

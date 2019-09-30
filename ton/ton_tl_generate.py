@@ -57,6 +57,9 @@ generate({
     'vector',
   ],
   'builtinInclude': 'ton/ton_tl_core.h',
+  'nullable': [
+    'config',
+  ],
 
   'conversion': {
     'include': 'auto/tl/tonlib_api.h',
