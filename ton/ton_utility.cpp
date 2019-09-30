@@ -170,12 +170,24 @@ void Start(Fn<void()> done, Fn<void(Error)> error) {
 		return;
 	}
 	GlobalClient = std::make_unique<Client>();
+	const auto init = [=](const TLok &) {
+		Send(
+			TLinit(
+				make_options(
+					nullptr,
+					make_keyStoreTypeInMemory())),
+			[=](const TLok &) { done(); },
+			ErrorHandler(error));
+	};
+	const auto setVerbosity = [=](const TLok &) {
+		Send(
+			TLSetLogVerbosityLevel(tl::make_int(0)),
+			init,
+			ErrorHandler(error));
+	};
 	Send(
-		TLinit(
-			make_options(
-				nullptr,
-				make_keyStoreTypeInMemory())),
-		[=](const TLok &) { done(); },
+		TLsetLogStream(make_logStreamEmpty()),
+		setVerbosity,
 		ErrorHandler(error));
 }
 
