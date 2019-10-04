@@ -25,36 +25,19 @@ class RequestSender final : public base::has_weak_ptr {
 		RequestBuilder &operator=(RequestBuilder &&other) = delete;
 
 	protected:
-		explicit RequestBuilder(not_null<RequestSender*> sender) noexcept
-		: _sender(sender) {
-		}
+		explicit RequestBuilder(not_null<RequestSender*> sender) noexcept;
 		RequestBuilder(RequestBuilder &&other) = default;
 
-		void setDoneHandler(FnMut<void(LibResponse)> &&handler) noexcept {
-			_done = std::move(handler);
-		}
-		void setFailHandler(FnMut<void(LibError)> &&handler) noexcept {
-			_fail = std::move(handler);
-		}
-		RequestId send(LibRequest request) noexcept {
-			auto ready = [done = std::move(_done), fail = std::move(_fail)](
-					LibResponse response) mutable {
-				Expects(response != nullptr);
-
-				if (response->get_id() == tonlib_api::error::ID) {
-					fail(tonlib_api::move_object_as<tonlib_api::error>(
-						std::move(response)));
-				} else {
-					done(std::move(response));
-				}
-			};
-			return _sender->_client.send(
-				std::move(request),
-				std::move(ready));
-		}
-		base::weak_ptr<RequestSender> on_main_guard() const {
-			return base::make_weak(_sender.get());
-		}
+		void setDoneOnMainHandler(FnMut<void()> &&handler) noexcept;
+		void setFailOnMainHandler(FnMut<void(const TLError&)> &&handler) noexcept;
+		void setFailOnMainHandler(FnMut<void()> &&handler) noexcept;
+		void setDoneHandler(FnMut<void()> &&handler) noexcept;
+		void setFailHandler(FnMut<void(const TLError&)> &&handler) noexcept;
+		void setFailHandler(FnMut<void()> &&handler) noexcept;
+		void setDoneHandler(FnMut<void(LibResponse)> &&handler) noexcept;
+		void setFailHandler(FnMut<void(LibError)> &&handler) noexcept;
+		RequestId send(LibRequest request) noexcept;
+		base::weak_ptr<RequestSender> on_main_guard() const;
 
 	private:
 		const not_null<RequestSender*> _sender;
@@ -65,7 +48,7 @@ class RequestSender final : public base::has_weak_ptr {
 
 public:
 	template <typename Request>
-	class SpecificRequestBuilder : public RequestBuilder {
+	class SpecificRequestBuilder final : public RequestBuilder {
 	private:
 		friend class RequestSender;
 		SpecificRequestBuilder(
@@ -78,12 +61,7 @@ public:
 
 	public:
 		[[nodiscard]] SpecificRequestBuilder &done(FnMut<void()> callback) {
-			setDoneHandler([
-				callback = std::move(callback),
-				guard = on_main_guard()
-			](LibResponse result) mutable {
-				crl::on_main(guard, std::move(callback));
-			});
+			setDoneOnMainHandler(std::move(callback));
 			return *this;
 		}
 		[[nodiscard]] SpecificRequestBuilder &done(
@@ -109,27 +87,42 @@ public:
 		}
 		[[nodiscard]] SpecificRequestBuilder &fail(
 				FnMut<void()> callback) noexcept {
-			setFailHandler([
-				callback = std::move(callback),
-				guard = on_main_guard()
-			](LibError error) mutable {
-				crl::on_main(guard, std::move(callback));
-			});
+			setFailOnMainHandler(std::move(callback));
 			return *this;
 		}
 		[[nodiscard]] SpecificRequestBuilder &fail(
 				FnMut<void(const TLError &error)> callback) noexcept {
-			setFailHandler([
-				callback = std::move(callback),
-				guard = on_main_guard()
-			](LibError error) mutable {
-				crl::on_main(guard, [
-					callback = std::move(callback),
-					error = tl_from(std::move(error))
-				]() mutable {
-					callback(error);
-				});
+			setFailOnMainHandler(std::move(callback));
+			return *this;
+		}
+
+		[[nodiscard]] SpecificRequestBuilder &done_async(
+				FnMut<void()> callback) {
+			setDoneHandler(std::move(callback));
+			return *this;
+		}
+		[[nodiscard]] SpecificRequestBuilder &done_async(
+			FnMut<void(
+				const typename Request::ResponseType &result)> callback) {
+			setDoneHandler([callback = std::move(callback)](
+					LibResponse result) mutable {
+				using FPointer = std::decay_t<decltype(tl_to(_request))>;
+				using Function = typename FPointer::element_type;
+				using RPointer = typename Function::ReturnType;
+				using ReturnType = typename RPointer::element_type;
+				callback(tl_from(tonlib_api::move_object_as<ReturnType>(
+					std::move(result))));
 			});
+			return *this;
+		}
+		[[nodiscard]] SpecificRequestBuilder &fail_async(
+				FnMut<void()> callback) noexcept {
+			setFailHandler(std::move(callback));
+			return *this;
+		}
+		[[nodiscard]] SpecificRequestBuilder &fail_async(
+				FnMut<void(const TLError &error)> callback) noexcept {
+			setFailHandler(std::move(callback));
 			return *this;
 		}
 

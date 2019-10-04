@@ -7,8 +7,7 @@
 #pragma once
 
 #include <QtCore/QString>
-
-#include <QtWidgets/QWidget>
+#include <QtCore/QByteArray>
 
 #include <rpl/rpl.h>
 #include <range/v3/all.hpp>

@@ -42,10 +42,11 @@
     'dependencies': [
       '<(submodules_loc)/lib_base/lib_base.gyp:lib_base',
       '<(submodules_loc)/lib_tl/lib_tl.gyp:lib_tl',
+      '<(submodules_loc)/lib_storage/lib_storage.gyp:lib_storage',
     ],
     'export_dependent_settings': [
       '<(submodules_loc)/lib_base/lib_base.gyp:lib_base',
-      '<(submodules_loc)/lib_tl/lib_tl.gyp:lib_tl',
+      '<(submodules_loc)/lib_storage/lib_storage.gyp:lib_storage',
     ],
     'sources': [
       '<(src_loc)/ton/ton_tl_core.h',
@@ -57,6 +58,8 @@
       '<(src_loc)/ton/ton_request_sender.h',
       '<(src_loc)/ton/ton_utility.cpp',
       '<(src_loc)/ton/ton_utility.h',
+      '<(src_loc)/ton/ton_wallet.cpp',
+      '<(src_loc)/ton/ton_wallet.h',
     ],
     'include_dirs': [
       '<(src_loc)',
