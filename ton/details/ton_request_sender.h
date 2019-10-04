@@ -8,10 +8,13 @@
 
 #include "ton_tl.h"
 #include "ton_tl_conversion.h"
-#include "ton/ton_client.h"
+#include "ton/details/ton_client.h"
+#include "ton/ton_result.h"
 #include "base/weak_ptr.h"
 
-namespace Ton {
+namespace Ton::details {
+
+[[nodiscard]] Error ErrorFromLib(const TLerror &error);
 
 class RequestSender final : public base::has_weak_ptr {
 	using LibRequest = tonlib_api::object_ptr<tonlib_api::Function>;
@@ -144,6 +147,14 @@ public:
 	[[nodiscard]] SpecificRequestBuilder<Request> request(
 		Request &&request) noexcept;
 
+	template <
+		typename Request,
+		typename = std::enable_if_t<
+		!std::is_reference_v<Request>
+		&& std::is_class_v<typename Request::ResponseType>
+		&& std::is_class_v<typename Request::Unboxed>>>
+	static Result<typename Request::ResponseType> Execute(Request &&request);
+
 private:
 	template <typename Request>
 	friend class SpecialRequestBuilder;
@@ -160,4 +171,23 @@ RequestSender::SpecificRequestBuilder<Request> RequestSender::request(
 	return SpecificRequestBuilder<Request>(this, std::move(request));
 }
 
-} // namespace Ton
+template <typename Request, typename>
+Result<typename Request::ResponseType> RequestSender::Execute(
+		Request &&request) {
+	auto response = Client::Execute(tl_to(request));
+	Assert(response != nullptr);
+
+	if (response->get_id() == tonlib_api::error::ID) {
+		return ErrorFromLib(tl_from(
+			tonlib_api::move_object_as<tonlib_api::error>(
+				std::move(response))));
+	}
+	using FPointer = std::decay_t<decltype(tl_to(request))>;
+	using Function = typename FPointer::element_type;
+	using RPointer = typename Function::ReturnType;
+	using ReturnType = typename RPointer::element_type;
+	return tl_from(tonlib_api::move_object_as<ReturnType>(
+		std::move(response)));
+}
+
+} // namespace Ton::details

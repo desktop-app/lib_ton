@@ -7,10 +7,10 @@
 #pragma once
 
 #include "auto/tl/tonlib_api.h"
-#include "ton/ton_tl_core.h"
+#include "ton/details/ton_tl_core.h"
 #include "ton_tl.h"
 
-namespace Ton {
+namespace Ton::details {
 
 TLstring tl_from(std::string &&value);
 std::string tl_to(const TLstring &value);
@@ -45,4 +45,4 @@ auto tl_to(const TLvector<T> &value) {
 	return result;
 }
 
-} // namespace Ton
+} // namespace Ton::details

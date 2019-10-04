@@ -9,7 +9,7 @@
 #include "tl/tl_basic_types.h"
 #include "base/match_method.h"
 
-namespace Ton {
+namespace Ton::details {
 
 using TLdouble = tl::double_type;
 using TLstring = tl::string_type;
@@ -27,4 +27,4 @@ public:
 };
 using TLsecureBytes = TLsecureString;
 
-} // namespace Ton
+} // namespace Ton::details

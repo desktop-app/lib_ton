@@ -12,7 +12,7 @@
 #include <thread>
 #include <atomic>
 
-namespace Ton {
+namespace Ton::details {
 
 namespace tonlib_api = ::ton::tonlib_api;
 using RequestId = uint32;
@@ -28,6 +28,8 @@ public:
 	RequestId send(LibRequest request, FnMut<void(LibResponse)> handler);
 	void cancel(RequestId requestId);
 
+	static LibResponse Execute(LibRequest request);
+
 private:
 	void check();
 
@@ -41,4 +43,4 @@ private:
 
 };
 
-} // namespace Ton
+} // namespace Ton::details

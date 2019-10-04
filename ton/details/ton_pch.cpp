@@ -4,5 +4,5 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "ton/ton_pch.h"
+#include "ton/details/ton_pch.h"
 

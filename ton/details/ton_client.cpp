@@ -4,9 +4,9 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "ton/ton_client.h"
+#include "ton/details/ton_client.h"
 
-namespace Ton {
+namespace Ton::details {
 
 Client::Client() : _thread([=] { check(); }) {
 }
@@ -32,6 +32,10 @@ RequestId Client::send(
 	return requestId;
 }
 
+Client::LibResponse Client::Execute(LibRequest request) {
+	return tonlib::Client::execute({ 0, std::move(request) }).object;
+}
+
 void Client::cancel(RequestId requestId) {
 	QMutexLocker lock(&_mutex);
 	_handlers.remove(requestId);
@@ -53,4 +57,4 @@ void Client::check() {
 	}
 }
 
-} // namespace Ton
+} // namespace Ton::details

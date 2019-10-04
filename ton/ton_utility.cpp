@@ -10,7 +10,7 @@
 #include "base/flat_map.h"
 #include "base/overload.h"
 #include "ton_tl.h"
-#include "ton/ton_request_sender.h"
+#include "ton/details/ton_request_sender.h"
 
 #include <crl/crl_on_main.h>
 #include <QtCore/QMutex>
@@ -28,6 +28,8 @@
 
 namespace Ton {
 namespace {
+
+using namespace details;
 
 constexpr auto kLocalErrorCode = -666;
 
@@ -49,75 +51,59 @@ TLsecureString MnemonicPassword() {
 	return TLsecureString{ QByteArray() };
 }
 
-Fn<void(const TLerror &)> ErrorHandler(Fn<void(Error)> handler) {
+template <typename T>
+Fn<void(const TLerror &)> ErrorHandler(Callback<T> handler) {
 	return [=](const TLerror &error) {
-		error.match([&](const TLDerror &data) {
-			const auto text = "TONLIB_ERROR_"
-				+ QString::number(data.vcode().v)
-				+ ": "
-				+ tl::utf16(data.vmessage());
-			handler(Error{ text });
-		});
+		handler(ErrorFromLib(error));
 	};
 }
 
 } // namespace
 
-void Start(Fn<void()> done, Fn<void(Error)> error) {
-	if (GlobalSender) {
-		error(Error{ "TON_INSTANCE_ALREADY_STARTED" });
-		return;
-	}
+void Start(Callback<> done) {
+	Expects(!GlobalSender);
+
+	const auto ok1 = RequestSender::Execute(TLSetLogStream(
+		make_logStreamEmpty()));
+	Assert(ok1);
+
+	const auto ok2 = RequestSender::Execute(TLSetLogVerbosityLevel(
+		tl::make_int(0)));
+	Assert(ok2);
+
 	GlobalSender = std::make_unique<RequestSender>();
-	GlobalSender->request(TLSetLogStream(
-		make_logStreamEmpty()
+	GlobalSender->request(TLInit(
+		make_options(
+			nullptr,
+			make_keyStoreTypeInMemory())
 	)).done([=] {
-		GlobalSender->request(TLSetLogVerbosityLevel(
-			tl::make_int(0)
-		)).done([=] {
-			GlobalSender->request(TLInit(
-				make_options(
-					nullptr,
-					make_keyStoreTypeInMemory())
-			)).done(
-				done
-			).fail(ErrorHandler(error)).send();
-		}).fail(ErrorHandler(error)).send();
-	}).fail(ErrorHandler(error)).send();
+		done({});
+	}).fail(ErrorHandler(done)).send();
 }
 
-void GetValidWords(
-		Fn<void(std::vector<QByteArray>)> done,
-		Fn<void(Error)> error) {
-	if (!GlobalSender) {
-		error(Error{ "TON_INSTANCE_NOT_STARTED" });
-		return;
-	}
+void GetValidWords(Fn<void(std::vector<QByteArray>)> done) {
+	const auto result = RequestSender::Execute(TLGetBip39Hints(
+		tl::make_string()));
+	Assert(result);
 
-	GlobalSender->request(TLGetBip39Hints(
-		tl::make_string()
-	)).done([=](const TLbip39Hints &result) {
-		result.match([&](const TLDbip39Hints &data) {
-			auto list = std::vector<QByteArray>();
-			list.reserve(data.vwords().v.size());
-			for (const auto &word : data.vwords().v) {
-				list.push_back(word.v);
-			}
-			done(std::move(list));
-		});
-	}).fail(ErrorHandler(error)).send();
+	result->match([&](const TLDbip39Hints &data) {
+		auto list = std::vector<QByteArray>();
+		list.reserve(data.vwords().v.size());
+		for (const auto &word : data.vwords().v) {
+			list.push_back(word.v);
+		}
+		done(std::move(list));
+	});
 }
 
 void CreateKey(
 		const QByteArray &seed,
-		Fn<void(Key)> done,
-		Fn<void(Error)> error) {
-	if (!GlobalSender) {
-		error(Error{ "TON_INSTANCE_NOT_STARTED" });
-		return;
-	}
+		Callback<UtilityKey> done) {
+	Expects(GlobalSender != nullptr);
 
-	const auto deleteAfterCreate = [=](QByteArray secret, const Key &key) {
+	const auto deleteAfterCreate = [=](
+			QByteArray secret,
+			const UtilityKey &key) {
 		GlobalSender->request(TLDeleteKey(
 			make_key(
 				tl::make_bytes(key.publicKey),
@@ -144,7 +130,7 @@ void CreateKey(
 					LocalPassword())
 			)).done([=](const TLexportedKey &result) {
 				result.match([&](const TLDexportedKey &data) {
-					auto key = Key();
+					auto key = UtilityKey();
 					key.publicKey = publicKey;
 					key.words.reserve(data.vword_list().v.size());
 					for (const auto &word : data.vword_list().v) {
@@ -152,15 +138,16 @@ void CreateKey(
 					}
 					deleteAfterCreate(secret, key);
 				});
-			}).fail(ErrorHandler(error)).send();
+			}).fail(ErrorHandler(done)).send();
 		});
-	}).fail(ErrorHandler(error)).send();
+	}).fail(ErrorHandler(done)).send();
 }
 
 void CheckKey(
 		const std::vector<QByteArray> &words,
-		Fn<void(QByteArray)> done,
-		Fn<void(Error)> error) {
+		Callback<QByteArray> done) {
+	Expects(GlobalSender != nullptr);
+
 	auto wrapped = QVector<TLsecureString>();
 	for (const auto &word : words) {
 		wrapped.push_back(TLsecureString{ word });
@@ -185,10 +172,12 @@ void CheckKey(
 				done(publicKey);
 			}).send();
 		});
-	}).fail(ErrorHandler(error)).send();
+	}).fail(ErrorHandler(done)).send();
 }
 
 void Finish() {
+	Expects(GlobalSender != nullptr);
+
 	GlobalSender = nullptr;
 }
 

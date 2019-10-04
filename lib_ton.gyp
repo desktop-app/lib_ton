@@ -36,8 +36,8 @@
         '-ltdutils',
         '-lcrc32c',
       ],
-      'pch_source': '<(src_loc)/ton/ton_pch.cpp',
-      'pch_header': '<(src_loc)/ton/ton_pch.h',
+      'pch_source': '<(src_loc)/ton/details/ton_pch.cpp',
+      'pch_header': '<(src_loc)/ton/details/ton_pch.h',
     },
     'dependencies': [
       '<(submodules_loc)/lib_base/lib_base.gyp:lib_base',
@@ -49,13 +49,20 @@
       '<(submodules_loc)/lib_storage/lib_storage.gyp:lib_storage',
     ],
     'sources': [
-      '<(src_loc)/ton/ton_tl_core.h',
-      '<(src_loc)/ton/ton_tl_core_conversion.cpp',
-      '<(src_loc)/ton/ton_tl_core_conversion.h',
-      '<(src_loc)/ton/ton_client.cpp',
-      '<(src_loc)/ton/ton_client.h',
-      '<(src_loc)/ton/ton_request_sender.cpp',
-      '<(src_loc)/ton/ton_request_sender.h',
+      '<(src_loc)/ton/details/ton_external.cpp',
+      '<(src_loc)/ton/details/ton_external.h',
+      '<(src_loc)/ton/details/ton_client.cpp',
+      '<(src_loc)/ton/details/ton_client.h',
+      '<(src_loc)/ton/details/ton_key_creator.cpp',
+      '<(src_loc)/ton/details/ton_key_creator.h',
+      '<(src_loc)/ton/details/ton_key_destroyer.cpp',
+      '<(src_loc)/ton/details/ton_key_destroyer.h',
+      '<(src_loc)/ton/details/ton_request_sender.cpp',
+      '<(src_loc)/ton/details/ton_request_sender.h',
+      '<(src_loc)/ton/details/ton_tl_core.h',
+      '<(src_loc)/ton/details/ton_tl_core_conversion.cpp',
+      '<(src_loc)/ton/details/ton_tl_core_conversion.h',
+      '<(src_loc)/ton/ton_result.h',
       '<(src_loc)/ton/ton_utility.cpp',
       '<(src_loc)/ton/ton_utility.h',
       '<(src_loc)/ton/ton_wallet.cpp',
@@ -71,6 +78,7 @@
       '<(ton_loc)/tl',
       '<(ton_loc)/tl/generate',
       '<(SHARED_INTERMEDIATE_DIR)',
+      '<(third_party_loc)/expected/include',
     ],
     'configurations': {
       'Debug': {
@@ -87,6 +95,7 @@
     'direct_dependent_settings': {
       'include_dirs': [
         '<(src_loc)',
+        '<(third_party_loc)/expected/include',
       ],
       'conditions': [[ 'build_win', {
         'link_settings': {
@@ -181,7 +190,7 @@
     'actions': [{
       'action_name': 'codegen_tl',
       'inputs': [
-        '<(src_loc)/ton/ton_tl_generate.py',
+        '<(src_loc)/ton/details/ton_tl_generate.py',
         '<(submodules_loc)/lib_tl/tl/generate_tl.py',
         '<(libs_loc)/ton/tl/generate/scheme/tonlib_api.tl',
       ],
@@ -192,7 +201,7 @@
         '<(SHARED_INTERMEDIATE_DIR)/ton_tl_conversion.h',
       ],
       'action': [
-        'python', '<(src_loc)/ton/ton_tl_generate.py',
+        'python', '<(src_loc)/ton/details/ton_tl_generate.py',
         '-o', '<(SHARED_INTERMEDIATE_DIR)/ton_tl',
         '<(libs_loc)/ton/tl/generate/scheme/tonlib_api.tl',
       ],

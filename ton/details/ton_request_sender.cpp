@@ -4,9 +4,16 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "ton/ton_request_sender.h"
+#include "ton/details/ton_request_sender.h"
 
-namespace Ton {
+namespace Ton::details {
+
+Error ErrorFromLib(const TLerror &error) {
+	const auto message = error.match([&](const TLDerror &data) {
+		return tl::utf16(data.vmessage());
+	});
+	return { Error::Type::TonLib, message };
+}
 
 RequestSender::RequestBuilder::RequestBuilder(
 	not_null<RequestSender*> sender) noexcept
@@ -102,4 +109,4 @@ auto RequestSender::RequestBuilder::on_main_guard() const
 	return base::make_weak(_sender.get());
 }
 
-} // namespace Ton
+} // namespace Ton::details

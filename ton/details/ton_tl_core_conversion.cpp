@@ -4,9 +4,9 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "ton/ton_tl_core_conversion.h"
+#include "ton/details/ton_tl_core_conversion.h"
 
-namespace Ton {
+namespace Ton::details {
 
 TLstring tl_from(std::string &&value) {
 	return tl::make_string(value);
@@ -48,4 +48,4 @@ bool tl_to(const TLbool &value) {
 	return (value.type() == id_boolTrue);
 }
 
-} // namespace Ton
+} // namespace Ton::details

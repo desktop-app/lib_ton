@@ -6,53 +6,45 @@
 //
 #pragma once
 
-#include "base/bytes.h"
+#include "ton/ton_result.h"
 
-namespace Storage {
-namespace Cache {
+namespace Storage::Cache {
 class Database;
-} // namespace Cache
-} // namespace Storage
+} // namespace Storage::Cache
 
 namespace Ton {
-
-class RequestSender;
+namespace details {
+struct WalletList;
+class External;
+class KeyCreator;
+class KeyDestroyer;
+} // namespace details
 
 class Wallet final {
 public:
 	explicit Wallet(const QString &path);
 	~Wallet();
 
-	struct OpenError {
-		enum class Type {
-			None,
-			IO,
-			WrongPassword,
-		};
-		Type type = Type::None;
-		QString path;
+	void open(const QByteArray &globalPassword, Callback<> done);
 
-		explicit operator bool() const {
-			return (type != Type::None);
-		}
-	};
-	[[nodiscard]] OpenError open(const QByteArray &globalPassword);
 	const std::vector<QByteArray> &publicKeys() const;
 
+	void createKey(Fn<void(Result<std::vector<QString>>)> done);
+	void saveKey(
+		const QByteArray &password,
+		Callback<QByteArray> done);
+	void deleteKey(const QByteArray &publicKey, Callback<> done);
+
 private:
-	[[nodiscard]] OpenError loadSalt();
-	[[nodiscard]] OpenError writeNewSalt();
-	[[nodiscard]] OpenError openDatabase(const QByteArray &globalPassword);
-	[[nodiscard]] OpenError startLibrary();
+	void setWalletList(const details::WalletList &list);
+	[[nodiscard]] details::WalletList collectWalletList() const;
 
-	const QString _basePath;
-	const std::unique_ptr<RequestSender> _lib;
-	const std::unique_ptr<Storage::Cache::Database> _db;
+	const std::unique_ptr<details::External> _external;
+	std::unique_ptr<details::KeyCreator> _keyCreator;
+	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
 
-	bool _opened = false;
-	bytes::vector _salt;
-	bytes::vector _globalKey;
 	std::vector<QByteArray> _publicKeys;
+	std::vector<QByteArray> _secrets;
 
 };
 

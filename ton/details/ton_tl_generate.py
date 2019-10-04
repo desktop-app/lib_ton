@@ -8,13 +8,12 @@ import glob, re, binascii, os, sys
 
 sys.dont_write_bytecode = True
 scriptPath = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(scriptPath + '/../../lib_tl/tl')
+sys.path.append(scriptPath + '/../../../lib_tl/tl')
 from generate_tl import generate
 
 generate({
   'namespaces': {
-    'global': 'Ton',
-    'creator': 'details',
+    'global': 'Ton::details',
   },
   'prefixes': {
     'type': 'TL',
@@ -56,7 +55,7 @@ generate({
   'builtinTemplates': [
     'vector',
   ],
-  'builtinInclude': 'ton/ton_tl_core.h',
+  'builtinInclude': 'ton/details/ton_tl_core.h',
   'nullable': [
     'config',
   ],
@@ -67,7 +66,7 @@ generate({
     'builtinAdditional': [
       'bool',
     ],
-    'builtinInclude': 'ton/ton_tl_core_conversion.h',
+    'builtinInclude': 'ton/details/ton_tl_core_conversion.h',
   },
 
 })

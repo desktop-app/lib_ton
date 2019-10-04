@@ -7,6 +7,7 @@
 #pragma once
 
 #include "base/basic_types.h"
+#include "ton/ton_result.h"
 
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
@@ -15,27 +16,20 @@
 
 namespace Ton {
 
-struct Error {
-	QString code;
-};
-
-struct Key {
+struct UtilityKey {
 	QByteArray publicKey;
 	std::vector<QByteArray> words;
 };
 
-void Start(Fn<void()> done, Fn<void(Error)> error);
-void GetValidWords(
-	Fn<void(std::vector<QByteArray>)> done,
-	Fn<void(Error)> error);
+void GetValidWords(Fn<void(std::vector<QByteArray>)> done);
+
+void Start(Callback<> done);
 void CreateKey(
 	const QByteArray &seed,
-	Fn<void(Key)> done,
-	Fn<void(Error)> error);
+	Callback<UtilityKey> done);
 void CheckKey(
 	const std::vector<QByteArray> &words,
-	Fn<void(QByteArray)> done,
-	Fn<void(Error)> error);
+	Callback<QByteArray> done);
 void Finish();
 
 } // namespace Ton
