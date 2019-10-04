@@ -13,6 +13,7 @@
     'includes': [
       '../gyp/helpers/common/library.gypi',
       '../gyp/helpers/modules/qt.gypi',
+      '../gyp/helpers/modules/pch.gypi',
       '../gyp/helpers/modules/openssl.gypi',
     ],
     'variables': {
@@ -35,6 +36,8 @@
         '-ltdutils',
         '-lcrc32c',
       ],
+      'pch_source': '<(src_loc)/ton/ton_pch.cpp',
+      'pch_header': '<(src_loc)/ton/ton_pch.h',
     },
     'dependencies': [
       '<(submodules_loc)/lib_base/lib_base.gyp:lib_base',
@@ -48,6 +51,10 @@
       '<(src_loc)/ton/ton_tl_core.h',
       '<(src_loc)/ton/ton_tl_core_conversion.cpp',
       '<(src_loc)/ton/ton_tl_core_conversion.h',
+      '<(src_loc)/ton/ton_client.cpp',
+      '<(src_loc)/ton/ton_client.h',
+      '<(src_loc)/ton/ton_request_sender.cpp',
+      '<(src_loc)/ton/ton_request_sender.h',
       '<(src_loc)/ton/ton_utility.cpp',
       '<(src_loc)/ton/ton_utility.h',
     ],
