@@ -24,7 +24,7 @@ td::SecureString tl_to(const TLsecureString &value) {
 	return td::SecureString{ value.v.data(), size_t(value.v.size()) };
 }
 
-TLint32 tl_from(std::int32_t &&value) {
+TLint32 tl_from(std::int32_t value) {
 	return tl::make_int(value);
 }
 
@@ -32,7 +32,7 @@ std::int32_t tl_to(const TLint32 &value) {
 	return value.v;
 }
 
-TLint64 tl_from(std::int64_t &&value) {
+TLint64 tl_from(std::int64_t value) {
 	return tl::make_long(value);
 }
 
@@ -40,7 +40,7 @@ std::int64_t tl_to(const TLint64 &value) {
 	return value.v;
 }
 
-TLbool tl_from(bool &&value) {
+TLbool tl_from(bool value) {
 	return value ? make_boolTrue() : make_boolFalse();
 }
 

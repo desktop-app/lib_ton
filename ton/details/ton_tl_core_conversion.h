@@ -16,11 +16,11 @@ TLstring tl_from(std::string &&value);
 std::string tl_to(const TLstring &value);
 TLsecureString tl_from(td::SecureString &&value);
 td::SecureString tl_to(const TLsecureString &value);
-TLint32 tl_from(std::int32_t &&value);
+TLint32 tl_from(std::int32_t value);
 std::int32_t tl_to(const TLint32 &value);
-TLint64 tl_from(std::int64_t &&value);
+TLint64 tl_from(std::int64_t value);
 std::int64_t tl_to(const TLint64 &value);
-TLbool tl_from(bool &&value);
+TLbool tl_from(bool value);
 bool tl_to(const TLbool &value);
 
 template <typename T>

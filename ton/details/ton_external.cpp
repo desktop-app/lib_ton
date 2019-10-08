@@ -7,6 +7,7 @@
 #include "ton/details/ton_external.h"
 
 #include "ton/details/ton_request_sender.h"
+#include "ton/ton_config.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
 #include "base/openssl_help.h"
@@ -24,6 +25,7 @@ namespace {
 constexpr auto kSaltSize = size_type(32);
 constexpr auto kIterations = 100'000;
 constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
+constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 
 [[nodiscard]] QString SubPath(const QString &basePath, const QString &name) {
 	Expects(basePath.endsWith('/'));
@@ -41,6 +43,10 @@ constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
 
 [[nodiscard]] QString SaltPath(const QString &basePath) {
 	return SubPath(basePath, "salt");
+}
+
+[[nodiscard]] QString TonLibLogPath(const QString &basePath) {
+	return SubPath(basePath, "tonlib_log.txt");
 }
 
 [[nodiscard]] Storage::Cache::Database::Settings DatabaseSettings() {
@@ -122,6 +128,7 @@ External::External(const QString &path)
 
 void External::open(
 		const QByteArray &globalPassword,
+		const Config &config,
 		Callback<WalletList> done) {
 	Expects(_state == State::Initial);
 
@@ -138,7 +145,7 @@ void External::open(
 			return;
 		}
 		const auto list = std::move(*result);
-		startLibrary([=](Result<> result) {
+		startLibrary(config, [=](Result<> result) {
 			if (!result) {
 				_state = State::Initial;
 				InvokeCallback(done, result.error());
@@ -148,6 +155,20 @@ void External::open(
 			InvokeCallback(done, list);
 		});
 	});
+}
+
+void External::setConfig(const Config &config, Callback<> done) {
+	_lib.request(TLoptions_SetConfig(
+		make_config(
+			tl::make_bytes(config.json),
+			tl::make_string(config.blockchainName),
+			tl_from(config.useNetworkCallbacks),
+			tl_from(config.ignoreCache))
+	)).done([=] {
+		InvokeCallback(done);
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
 }
 
 RequestSender &External::lib() {
@@ -259,16 +280,27 @@ void External::openDatabase(
 	});
 }
 
-void External::startLibrary(Callback<> done) {
+void External::startLibrary(const Config &config, Callback<> done) {
 	const auto path = LibraryStoragePath(_basePath);
 	if (!QDir().mkpath(path)) {
 		InvokeCallback(done, Error{ Error::Type::IO, path });
 		return;
 	}
 
+#ifdef _DEBUG
+	RequestSender::Execute(TLSetLogStream(
+		make_logStreamFile(
+			tl::make_string(TonLibLogPath(_basePath)),
+			tl::make_long(kMaxTonLibLogSize))));
+#endif // _DEBUG
+
 	_lib.request(TLInit(
 		make_options(
-			nullptr,
+			make_config(
+				tl::make_bytes(config.json),
+				tl::make_string(config.blockchainName),
+				tl_from(config.useNetworkCallbacks),
+				tl_from(config.ignoreCache)),
 			make_keyStoreTypeDirectory(tl::make_string(path)))
 	)).done([=] {
 		InvokeCallback(done);

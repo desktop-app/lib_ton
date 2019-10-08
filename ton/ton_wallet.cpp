@@ -10,6 +10,9 @@
 #include "ton/details/ton_key_creator.h"
 #include "ton/details/ton_key_destroyer.h"
 #include "ton/details/ton_external.h"
+#include "ton/details/ton_parse_state.h"
+#include "ton/ton_config.h"
+#include "ton/ton_state.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
 #include "base/openssl_help.h"
@@ -37,10 +40,21 @@ Wallet::Wallet(const QString &path)
 
 Wallet::~Wallet() = default;
 
+QString Wallet::GetAddress(const QByteArray &publicKey) {
+	return RequestSender::Execute(TLwallet_GetAccountAddress(
+		make_wallet_initialAccountState(tl::make_bytes(publicKey))
+	)).value_or(
+		make_accountAddress(tl::make_string(QString()))
+	).match([&](const TLDaccountAddress &data) {
+		return tl::utf16(data.vaccount_address());
+	});
+}
+
 void Wallet::open(
 		const QByteArray &globalPassword,
+		const Config &config,
 		Callback<> done) {
-	_external->open(globalPassword, [=](Result<WalletList> result) {
+	_external->open(globalPassword, config, [=](Result<WalletList> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
@@ -50,11 +64,15 @@ void Wallet::open(
 	});
 }
 
+void Wallet::setConfig(const Config &config, Callback<> done) {
+	_external->setConfig(config, std::move(done));
+}
+
 const std::vector<QByteArray> &Wallet::publicKeys() const {
 	return _publicKeys;
 }
 
-void Wallet::createKey(Fn<void(Result<std::vector<QString>>)> done) {
+void Wallet::createKey(Callback<std::vector<QString>> done) {
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
 
@@ -146,6 +164,45 @@ void Wallet::deleteKey(
 		index,
 		_external->saveListMethod(),
 		std::move(removed));
+}
+
+void Wallet::requestState(
+		const QString &address,
+		Callback<AccountState> done) {
+	_external->lib().request(TLgeneric_GetAccountState(
+		make_accountAddress(tl::make_string(address))
+	)).done([=](const TLgeneric_AccountState &result) {
+		const auto finish = [&](auto &&value) {
+			InvokeCallback(done, std::move(value));
+		};
+		result.match([&](const TLDgeneric_accountStateTestGiver &data) {
+			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_TEST_GIVER" });
+		}, [&](const TLDgeneric_accountStateTestWallet &data) {
+			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_TEST_WALLET" });
+		}, [&](const TLDgeneric_accountStateRaw &data) {
+			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_RAW" });
+		}, [&](const auto &data) {
+			finish(Parse(data.vaccount_state()));
+		});
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
+void Wallet::requestTransactions(
+		const QString &address,
+		const TransactionId &lastId,
+		Callback<TransactionsSlice> done) {
+	_external->lib().request(TLraw_GetTransactions(
+		make_accountAddress(tl::make_string(address)),
+		make_internal_transactionId(
+			tl::make_long(lastId.id),
+			tl::make_bytes(lastId.hash))
+	)).done([=](const TLraw_Transactions &result) {
+		InvokeCallback(done, Parse(result));
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
 }
 
 } // namespace Ton

@@ -12,6 +12,10 @@
 #include "base/bytes.h"
 #include "base/weak_ptr.h"
 
+namespace Ton {
+struct Config;
+} // namespace Ton
+
 namespace Ton::details {
 
 struct WalletList {
@@ -31,7 +35,9 @@ public:
 
 	void open(
 		const QByteArray &globalPassword,
+		const Config &config,
 		Callback<WalletList> done);
+	void setConfig(const Config &config, Callback<> done);
 
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Fn<void(WalletList, Callback<>)> saveListMethod();
@@ -48,7 +54,7 @@ private:
 	void openDatabase(
 		const QByteArray &globalPassword,
 		Callback<WalletList> done);
-	void startLibrary(Callback<> done);
+	void startLibrary(const Config &config, Callback<> done);
 
 	const QString _basePath;
 	RequestSender _lib;
