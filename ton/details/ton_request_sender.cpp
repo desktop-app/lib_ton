@@ -93,9 +93,11 @@ RequestId RequestSender::RequestBuilder::send(LibRequest request) noexcept {
 		Expects(response != nullptr);
 
 		if (response->get_id() == tonlib_api::error::ID) {
-			fail(tonlib_api::move_object_as<tonlib_api::error>(
-				std::move(response)));
-		} else {
+			if (fail) {
+				fail(tonlib_api::move_object_as<tonlib_api::error>(
+					std::move(response)));
+			}
+		} else if (done) {
 			done(std::move(response));
 		}
 	};

@@ -9,6 +9,7 @@
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_key_creator.h"
 #include "ton/details/ton_key_destroyer.h"
+#include "ton/details/ton_password_changer.h"
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_parse_state.h"
 #include "ton/ton_config.h"
@@ -75,6 +76,7 @@ const std::vector<QByteArray> &Wallet::publicKeys() const {
 void Wallet::createKey(Callback<std::vector<QString>> done) {
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
+	Expects(_passwordChanger == nullptr);
 
 	auto created = [=](Result<std::vector<QString>> result) {
 		const auto destroyed = result
@@ -139,6 +141,7 @@ void Wallet::deleteKey(
 		Callback<> done) {
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
+	Expects(_passwordChanger == nullptr);
 	Expects(ranges::find(_publicKeys, publicKey) != end(_publicKeys));
 
 	auto list = collectWalletList();
@@ -149,11 +152,11 @@ void Wallet::deleteKey(
 	) - begin(list.entries);
 
 	auto removed = [=](Result<> result) {
+		const auto destroyed = base::take(_keyDestroyer);
 		if (!result) {
 			InvokeCallback(done, result);
 			return;
 		}
-		const auto destroyed = base::take(_keyDestroyer);
 		_publicKeys.erase(begin(_publicKeys) + index);
 		_secrets.erase(begin(_secrets) + index);
 		InvokeCallback(done, result);
@@ -164,6 +167,33 @@ void Wallet::deleteKey(
 		index,
 		_external->saveListMethod(),
 		std::move(removed));
+}
+
+void Wallet::changePassword(
+		const QByteArray &oldPassword,
+		const QByteArray &newPassword,
+		Callback<> done) {
+	Expects(_keyCreator == nullptr);
+	Expects(_keyDestroyer == nullptr);
+	Expects(_passwordChanger == nullptr);
+	Expects(!_publicKeys.empty());
+
+	auto changed = [=](Result<std::vector<QByteArray>> result) {
+		const auto destroyed = base::take(_passwordChanger);
+		if (!result) {
+			InvokeCallback(done, result.error());
+			return;
+		}
+		_secrets = std::move(*result);
+		InvokeCallback(done);
+	};
+	_passwordChanger = std::make_unique<PasswordChanger>(
+		&_external->lib(),
+		oldPassword,
+		newPassword,
+		collectWalletList(),
+		_external->saveListMethod(),
+		std::move(changed));
 }
 
 void Wallet::requestState(

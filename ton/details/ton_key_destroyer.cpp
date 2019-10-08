@@ -20,16 +20,16 @@ KeyDestroyer::KeyDestroyer(
 	Expects(index >= 0 && index < existing.entries.size());
 
 	const auto &entry = existing.entries[index];
-	auto removeFromDatabase = crl::guard(this, [=] {
+	auto removeFromDatabase = crl::guard(this, [=](Result<>) {
 		auto copy = existing;
 		copy.entries.erase(begin(copy.entries) + index);
 		saveList(std::move(copy), crl::guard(this, done));
 	});
-	lib->request(TLDeleteKey(
-		make_key(
-			tl::make_bytes(entry.publicKey),
-			TLsecureBytes{ entry.secret })
-	)).done(removeFromDatabase).fail(removeFromDatabase).send();
+	DeleteKeyFromLibrary(
+		lib,
+		entry.publicKey,
+		entry.secret,
+		std::move(removeFromDatabase));
 }
 
 } // namespace Ton::details

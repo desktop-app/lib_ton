@@ -65,21 +65,10 @@ void KeyCreator::exportWords(
 		_state = State::Created;
 		InvokeCallback(done, std::move(list));
 	})).fail(crl::guard(this, [=](const TLError &error) {
-		deleteFromLibrary(_key, _secret);
-		InvokeCallback(done, ErrorFromLib(error));
-	})).send();
-}
-
-void KeyCreator::deleteFromLibrary(
-		const QByteArray &publicKey,
-		const QByteArray &secret,
-		Callback<> done) {
-	_lib->request(TLDeleteKey(
-		make_key(tl::make_bytes(publicKey), TLsecureBytes{ secret })
-	)).done(crl::guard(this, [=] {
-		InvokeCallback(done);
-	})).fail(crl::guard(this, [=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
+		auto finish = crl::guard(this, [=](Result<>) {
+			InvokeCallback(done, ErrorFromLib(error));
+		});
+		DeleteKeyFromLibrary(_lib, _key, _secret, std::move(finish));
 	})).send();
 }
 
@@ -140,12 +129,14 @@ void KeyCreator::changePassword(
 			TLsecureBytes{ _password }),
 		TLsecureBytes{ password }
 	)).done(crl::guard(this, [=](const TLKey &result) {
-		deleteFromLibrary(_key, _secret);
-		result.match([&](const TLDkey &data) {
-			_password = password;
-			_secret = data.vsecret().v;
-			InvokeCallback(done);
+		auto finish = crl::guard(this, [=](Result<>) {
+			result.match([&](const TLDkey &data) {
+				_password = password;
+				_secret = data.vsecret().v;
+				InvokeCallback(done);
+			});
 		});
+		DeleteKeyFromLibrary(_lib, _key, _secret, std::move(finish));
 	})).fail(crl::guard(this, [=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	})).send();

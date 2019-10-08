@@ -29,6 +29,12 @@ struct WalletList {
 [[nodiscard]] std::optional<Error> ErrorFromStorage(
 	const Storage::Cache::Error &error);
 
+void DeleteKeyFromLibrary(
+	not_null<RequestSender*> lib,
+	const QByteArray &publicKey,
+	const QByteArray &secret,
+	Callback<> done);
+
 class External final : public base::has_weak_ptr {
 public:
 	explicit External(const QString &path);

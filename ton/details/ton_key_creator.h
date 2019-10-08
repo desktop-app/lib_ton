@@ -6,8 +6,6 @@
 //
 #pragma once
 
-#include "base/weak_ptr.h"
-#include "ton/ton_wallet.h"
 #include "ton/details/ton_external.h"
 
 namespace Ton::details {
@@ -41,10 +39,6 @@ private:
 		WalletList existing,
 		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<WalletList::Entry> done);
-	void deleteFromLibrary(
-		const QByteArray &publicKey,
-		const QByteArray &secret,
-		Callback<> done = nullptr);
 
 	const not_null<RequestSender*> _lib;
 

@@ -7,7 +7,7 @@
 #pragma once
 
 #include "base/weak_ptr.h"
-#include "ton/ton_wallet.h"
+#include "ton/ton_result.h"
 
 namespace Ton::details {
 

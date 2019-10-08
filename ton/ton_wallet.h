@@ -18,6 +18,7 @@ struct WalletList;
 class External;
 class KeyCreator;
 class KeyDestroyer;
+class PasswordChanger;
 } // namespace details
 
 struct Config;
@@ -45,6 +46,10 @@ public:
 		const QByteArray &password,
 		Callback<QByteArray> done);
 	void deleteKey(const QByteArray &publicKey, Callback<> done);
+	void changePassword(
+		const QByteArray &oldPassword,
+		const QByteArray &newPassword,
+		Callback<> done);
 
 	static QString GetAddress(const QByteArray &publicKey);
 
@@ -66,6 +71,7 @@ private:
 	const std::unique_ptr<details::External> _external;
 	std::unique_ptr<details::KeyCreator> _keyCreator;
 	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
+	std::unique_ptr<details::PasswordChanger> _passwordChanger;
 
 	std::vector<QByteArray> _publicKeys;
 	std::vector<QByteArray> _secrets;

@@ -120,6 +120,20 @@ std::optional<Error> ErrorFromStorage(const Storage::Cache::Error &error) {
 	return std::nullopt;
 }
 
+void DeleteKeyFromLibrary(
+		not_null<RequestSender*> lib,
+		const QByteArray &publicKey,
+		const QByteArray &secret,
+		Callback<> done) {
+	lib->request(TLDeleteKey(
+		make_key(tl::make_bytes(publicKey), TLsecureBytes{ secret })
+	)).done([=] {
+		InvokeCallback(done);
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 External::External(const QString &path)
 : _basePath(path.endsWith('/') ? path : (path + '/'))
 , _db(DatabasePath(_basePath), DatabaseSettings()) {
