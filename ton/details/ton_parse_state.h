@@ -16,5 +16,9 @@ namespace Ton::details {
 [[nodiscard]] AccountState Parse(const TLuninited_AccountState &data);
 [[nodiscard]] Transaction Parse(const TLraw_Transaction &data);
 [[nodiscard]] TransactionsSlice Parse(const TLraw_Transactions &data);
+[[nodiscard]] SentTransaction Parse(
+	const TLSendGramsResult &data,
+	const QString &sender,
+	const TransactionToSend &transaction);
 
 } // namespace Ton::details

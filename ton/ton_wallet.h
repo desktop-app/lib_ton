@@ -24,6 +24,8 @@ struct Config;
 struct AccountState;
 struct TransactionId;
 struct TransactionsSlice;
+struct TransactionToSend;
+struct SentTransaction;
 
 class Wallet final {
 public:
@@ -51,6 +53,11 @@ public:
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done);
+	void sendGrams(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		const TransactionToSend &transaction,
+		Callback<SentTransaction> done);
 
 private:
 	void setWalletList(const details::WalletList &list);

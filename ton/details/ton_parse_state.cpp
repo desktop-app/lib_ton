@@ -6,6 +6,8 @@
 //
 #include "ton/details/ton_parse_state.h"
 
+#include <QtCore/QDateTime>
+
 namespace Ton::details {
 
 TransactionId Parse(const TLinternal_TransactionId &data) {
@@ -46,8 +48,6 @@ Message Parse(const TLraw_Message &data) {
 		result.created = data.vcreated_lt().v;
 		result.source = tl::utf16(data.vsource());
 		result.destination = tl::utf16(data.vdestination());
-		result.forwardFee = data.vfwd_fee().v;
-		result.immediateHypercubeRoutingFee = data.vihr_fee().v;
 		result.message = data.vmessage().v;
 		result.value = data.vvalue().v;
 		return result;
@@ -57,7 +57,6 @@ Message Parse(const TLraw_Message &data) {
 Transaction Parse(const TLraw_Transaction &data) {
 	return data.match([&](const TLDraw_transaction &data) {
 		auto result = Transaction();
-		result.data = data.vdata().v;
 		result.fee = data.vfee().v;
 		result.id = Parse(data.vtransaction_id());
 		result.incoming = Parse(data.vin_msg());
@@ -84,6 +83,25 @@ TransactionsSlice Parse(const TLraw_Transactions &data) {
 		}) | ranges::to_vector;
 		return result;
 	});
+}
+
+SentTransaction Parse(
+		const TLSendGramsResult &data,
+		const QString &sender,
+		const TransactionToSend &transaction) {
+	auto result = SentTransaction();
+	result.fake.time = QDateTime::currentDateTime().toTime_t();
+	data.match([&](const TLDsendGramsResult &data) {
+		result.sentUntilSyncTime = data.vsent_until().v;
+		result.fake.incoming.bodyHash = data.vbody_hash().v;
+	});
+	result.fake.incoming.destination = sender;
+	auto &outgoing = result.fake.outgoing.emplace_back();
+	outgoing.source = sender;
+	outgoing.destination = transaction.recipient;
+	outgoing.message = transaction.comment.toUtf8();
+	outgoing.value = transaction.amount;
+	return result;
 }
 
 } // namespace Ton::details

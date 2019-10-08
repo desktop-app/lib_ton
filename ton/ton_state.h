@@ -25,8 +25,6 @@ struct Message {
 	QString source;
 	QString destination;
 	int64 value = 0;
-	int64 forwardFee = 0;
-	int64 immediateHypercubeRoutingFee = 0;
 	int64 created = 0;
 	QByteArray bodyHash;
 	QByteArray message;
@@ -35,7 +33,6 @@ struct Message {
 struct Transaction {
 	TransactionId id;
 	int64 time = 0;
-	QByteArray data;
 	int64 fee = 0;
 	int64 storageFee = 0;
 	int64 otherFee = 0;
@@ -46,6 +43,19 @@ struct Transaction {
 struct TransactionsSlice {
 	std::vector<Transaction> list;
 	TransactionId previousId;
+};
+
+struct TransactionToSend {
+	QString recipient;
+	int64 amount = 0;
+	int timeout = 0;
+	bool allowSendToUninited = false;
+	QString comment;
+};
+
+struct SentTransaction {
+	Transaction fake;
+	int64 sentUntilSyncTime = 0;
 };
 
 } // namespace Ton

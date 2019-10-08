@@ -205,4 +205,37 @@ void Wallet::requestTransactions(
 	}).send();
 }
 
+void Wallet::sendGrams(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		const TransactionToSend &transaction,
+		Callback<SentTransaction> done) {
+	Expects(transaction.amount > 0);
+
+	const auto sender = GetAddress(publicKey);
+	Assert(!sender.isEmpty());
+
+	const auto index = ranges::find(_publicKeys, publicKey)
+		- begin(_publicKeys);
+	Assert(index < _secrets.size());
+
+	_external->lib().request(TLgeneric_SendGrams(
+		make_inputKey(
+			make_key(
+				tl::make_bytes(publicKey),
+				TLsecureBytes{ _secrets[index] }),
+			TLsecureBytes{ password }),
+		make_accountAddress(tl::make_string(sender)),
+		make_accountAddress(tl::make_string(transaction.recipient)),
+		tl::make_long(transaction.amount),
+		tl::make_int(transaction.timeout),
+		tl_from(transaction.allowSendToUninited),
+		tl::make_string(transaction.comment)
+	)).done([=](const TLSendGramsResult &result) {
+		InvokeCallback(done, Parse(result, sender, transaction));
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 } // namespace Ton
