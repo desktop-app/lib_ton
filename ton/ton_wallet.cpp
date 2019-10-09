@@ -14,6 +14,7 @@
 #include "ton/details/ton_parse_state.h"
 #include "ton/ton_config.h"
 #include "ton/ton_state.h"
+#include "ton/ton_account_viewer.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
 #include "base/openssl_help.h"
@@ -32,14 +33,20 @@ using namespace details;
 } // namespace
 
 Wallet::Wallet(const QString &path)
-: _external(std::make_unique<External>(path)) {
+: _external(std::make_unique<External>(path))
+, _refreshTimer([=] { checkNextRefresh(); }) {
 	crl::async([] {
 		// Init random, because it is slow.
 		static_cast<void>(openssl::RandomValue<uint8>());
 	});
 }
 
-Wallet::~Wallet() = default;
+Wallet::~Wallet() {
+	for (const auto &[address, viewers] : _accountViewers) {
+		Assert(viewers.list.empty());
+	}
+	_accountViewers.clear();
+}
 
 QString Wallet::GetAddress(const QByteArray &publicKey) {
 	return RequestSender::Execute(TLwallet_GetAccountAddress(
@@ -217,6 +224,37 @@ void Wallet::changePassword(
 		std::move(changed));
 }
 
+void Wallet::sendGrams(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		const TransactionToSend &transaction,
+		Callback<PendingTransaction> done) {
+	Expects(transaction.amount > 0);
+
+	const auto sender = GetAddress(publicKey);
+	Assert(!sender.isEmpty());
+
+	const auto index = ranges::find(_publicKeys, publicKey)
+		- begin(_publicKeys);
+	Assert(index < _secrets.size());
+
+	_external->lib().request(TLgeneric_SendGrams(
+		tl_inputKey(
+			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
+			TLsecureBytes{ password }),
+		tl_accountAddress(tl_string(sender)),
+		tl_accountAddress(tl_string(transaction.recipient)),
+		tl_int64(transaction.amount),
+		tl_int32(transaction.timeout),
+		tl_from(transaction.allowSendToUninited),
+		tl_string(transaction.comment)
+	)).done([=](const TLSendGramsResult &result) {
+		InvokeCallback(done, Parse(result, sender, transaction));
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 void Wallet::requestState(
 		const QString &address,
 		Callback<AccountState> done) {
@@ -254,35 +292,124 @@ void Wallet::requestTransactions(
 	}).send();
 }
 
-void Wallet::sendGrams(
-		const QByteArray &publicKey,
-		const QByteArray &password,
-		const TransactionToSend &transaction,
-		Callback<PendingTransaction> done) {
-	Expects(transaction.amount > 0);
+void Wallet::refreshAccount(const QString &address, Viewers &viewers) {
+	viewers.refreshing = true;
+	requestState(address, [=](Result<AccountState> result) {
+		const auto i = _accountViewers.find(address);
+		Assert(i != end(_accountViewers));
+		if (i->second.list.empty()) {
+			_accountViewers.erase(i);
+			return;
+		} else if (!result) {
+			// ?? #TODO
+			i->second.refreshing = false;
+			i->second.lastRefresh = crl::now();
+			checkNextRefresh();
+			return;
+		}
+		const auto &state = *result;
+		auto received = [=](Result<TransactionsSlice> result) {
+			const auto i = _accountViewers.find(address);
+			Assert(i != end(_accountViewers));
+			if (i->second.list.empty()) {
+				_accountViewers.erase(i);
+				return;
+			} else if (!result) {
+				// ?? #TODO
+				i->second.refreshing = false;
+				i->second.lastRefresh = crl::now();
+				checkNextRefresh();
+				return;
+			}
+			const auto weak = base::make_weak(this);
+			i->second.refreshing = false;
+			i->second.lastRefresh = crl::now();
+			i->second.state = WalletState{
+				address,
+				state,
+				std::move(*result)
+			};
+			if (weak) {
+				checkNextRefresh();
+			}
+		};
+		requestTransactions(address, result->lastTransactionId, received);
+	});
+}
 
-	const auto sender = GetAddress(publicKey);
-	Assert(!sender.isEmpty());
+void Wallet::checkNextRefresh() {
+	constexpr auto kNoRefresh = std::numeric_limits<crl::time>::max();
+	auto minWait = kNoRefresh;
+	const auto now = crl::now();
+	for (auto &[address, viewers] : _accountViewers) {
+		if (viewers.refreshing) {
+			continue;
+		}
+		Assert(viewers.lastRefresh > 0);
+		Assert(!viewers.list.empty());
+		const auto j = ranges::min_element(
+			viewers.list,
+			ranges::less(),
+			&AccountViewer::refreshEach);
+		const auto min = (*j)->refreshEach();
+		const auto next = viewers.nextRefresh = viewers.lastRefresh + min;
+		const auto in = next - now;
+		if (in <= 0) {
+			refreshAccount(address, viewers);
+			continue;
+		}
+		if (minWait > in) {
+			minWait = in;
+		}
+	}
+	if (minWait != kNoRefresh) {
+		_refreshTimer.callOnce(minWait);
+	}
+}
 
-	const auto index = ranges::find(_publicKeys, publicKey)
-		- begin(_publicKeys);
-	Assert(index < _secrets.size());
+std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
+		const QString &address) {
+	const auto i = _accountViewers.emplace(
+		address,
+		Viewers{ WalletState{ address } }
+	).first;
 
-	_external->lib().request(TLgeneric_SendGrams(
-		tl_inputKey(
-			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
-			TLsecureBytes{ password }),
-		tl_accountAddress(tl_string(sender)),
-		tl_accountAddress(tl_string(transaction.recipient)),
-		tl_int64(transaction.amount),
-		tl_int32(transaction.timeout),
-		tl_from(transaction.allowSendToUninited),
-		tl_string(transaction.comment)
-	)).done([=](const TLSendGramsResult &result) {
-		InvokeCallback(done, Parse(result, sender, transaction));
-	}).fail([=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
-	}).send();
+	auto result = std::make_unique<AccountViewer>(i->second.state.value());
+	const auto raw = result.get();
+	i->second.list.push_back(raw);
+
+	if (!i->second.nextRefresh) {
+		i->second.nextRefresh = raw->refreshEach();
+		refreshAccount(address, i->second);
+	}
+
+	raw->refreshEachValue(
+	) | rpl::start_with_next_done([=] {
+		checkNextRefresh();
+	}, [=] {
+		const auto i = _accountViewers.find(address);
+		Assert(i != end(_accountViewers));
+		i->second.list.erase(
+			ranges::remove(
+				i->second.list,
+				raw,
+				&not_null<AccountViewer*>::get),
+			end(i->second.list));
+		if (i->second.list.empty() && !i->second.refreshing) {
+			_accountViewers.erase(i);
+		}
+	}, i->second.lifetime);
+
+	raw->refreshNowRequests(
+	) | rpl::start_with_next([=] {
+		const auto i = _accountViewers.find(address);
+		Assert(i != end(_accountViewers));
+		if (!i->second.refreshing) {
+			refreshAccount(address, i->second);
+		}
+	}, i->second.lifetime);
+
+	return result;
 }
 
 } // namespace Ton

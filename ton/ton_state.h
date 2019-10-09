@@ -57,4 +57,11 @@ struct PendingTransaction {
 	int64 sentUntilSyncTime = 0;
 };
 
+struct WalletState {
+	QString address;
+	AccountState account;
+	TransactionsSlice lastTransactions;
+	std::vector<PendingTransaction> pendingTransactions;
+};
+
 } // namespace Ton

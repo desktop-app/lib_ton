@@ -13,6 +13,9 @@ Client::Client() : _thread([=] { check(); }) {
 
 Client::~Client() {
 	_finished = true;
+	QMutexLocker lock(&_mutex);
+	_handlers.clear();
+	lock.unlock();
 	send(tonlib_api::make_object<tonlib_api::close>(), nullptr);
 	_thread.join();
 }
@@ -25,7 +28,6 @@ RequestId Client::send(
 	if (handler) {
 		QMutexLocker lock(&_mutex);
 		_handlers.emplace(requestId, std::move(handler));
-		lock.unlock();
 	}
 
 	_wrapped.send({ requestId, std::move(request) });

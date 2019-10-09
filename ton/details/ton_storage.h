@@ -15,6 +15,16 @@ struct Error;
 } // namespace Cache
 } // namespace Storage
 
+namespace Ton {
+struct TransactionId;
+struct AccountState;
+struct Message;
+struct Transaction;
+struct TransactionsSlice;
+struct PendingTransaction;
+struct WalletState;
+} // namespace Ton
+
 namespace Ton::details {
 
 class RequestSender;

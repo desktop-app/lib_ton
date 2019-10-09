@@ -7,6 +7,8 @@
 #pragma once
 
 #include "ton/ton_result.h"
+#include "ton/ton_state.h"
+#include "base/timer.h"
 
 namespace Storage::Cache {
 class Database;
@@ -22,13 +24,9 @@ class PasswordChanger;
 } // namespace details
 
 struct Config;
-struct AccountState;
-struct TransactionId;
-struct TransactionsSlice;
-struct TransactionToSend;
-struct PendingTransaction;
+class AccountViewer;
 
-class Wallet final {
+class Wallet final : public base::has_weak_ptr {
 public:
 	explicit Wallet(const QString &path);
 	~Wallet();
@@ -52,20 +50,35 @@ public:
 		const QByteArray &newPassword,
 		Callback<> done);
 
-	static QString GetAddress(const QByteArray &publicKey);
-
-	void requestState(const QString &address, Callback<AccountState> done);
-	void requestTransactions(
-		const QString &address,
-		const TransactionId &lastId,
-		Callback<TransactionsSlice> done);
 	void sendGrams(
 		const QByteArray &publicKey,
 		const QByteArray &password,
 		const TransactionToSend &transaction,
 		Callback<PendingTransaction> done);
 
+	[[nodiscard]] static QString GetAddress(const QByteArray &publicKey);
+
+	void requestState(const QString &address, Callback<AccountState> done);
+	void requestTransactions(
+		const QString &address,
+		const TransactionId &lastId,
+		Callback<TransactionsSlice> done);
+
+	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
+		const QString &address);
+
 private:
+	struct Viewers {
+		rpl::variable<WalletState> state;
+		crl::time lastRefresh = 0;
+		crl::time nextRefresh = 0;
+		bool refreshing = false;
+		std::vector<not_null<AccountViewer*>> list;
+		rpl::lifetime lifetime;
+	};
+
+	void refreshAccount(const QString &address, Viewers &viewers);
+	void checkNextRefresh();
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
 
@@ -76,6 +89,10 @@ private:
 
 	std::vector<QByteArray> _publicKeys;
 	std::vector<QByteArray> _secrets;
+
+	base::flat_map<QString, Viewers> _accountViewers;
+
+	base::Timer _refreshTimer;
 
 };
 
