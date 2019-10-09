@@ -22,6 +22,10 @@ public:
 		index_type index,
 		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<> done);
+	KeyDestroyer(
+		not_null<RequestSender*> lib,
+		Fn<void(WalletList, Callback<>)> saveList,
+		Callback<> done);
 
 };
 

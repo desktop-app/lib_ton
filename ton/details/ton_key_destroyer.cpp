@@ -32,4 +32,19 @@ KeyDestroyer::KeyDestroyer(
 		std::move(removeFromDatabase));
 }
 
+KeyDestroyer::KeyDestroyer(
+		not_null<RequestSender*> lib,
+		Fn<void(WalletList, Callback<>)> saveList,
+		Callback<> done) {
+	const auto removeFromDatabase = crl::guard(this, [=](const auto&) {
+		saveList(WalletList(), crl::guard(this, done));
+	});
+	lib->request(TLDeleteAllKeys(
+	)).done(
+		removeFromDatabase
+	).fail(
+		removeFromDatabase
+	).send();
+}
+
 } // namespace Ton::details

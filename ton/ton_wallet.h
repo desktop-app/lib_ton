@@ -46,6 +46,7 @@ public:
 		const QByteArray &password,
 		Callback<QByteArray> done);
 	void deleteKey(const QByteArray &publicKey, Callback<> done);
+	void deleteAllKeys(Callback<> done);
 	void changePassword(
 		const QByteArray &oldPassword,
 		const QByteArray &newPassword,

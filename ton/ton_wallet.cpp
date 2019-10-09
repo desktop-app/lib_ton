@@ -169,6 +169,27 @@ void Wallet::deleteKey(
 		std::move(removed));
 }
 
+void Wallet::deleteAllKeys(Callback<> done) {
+	Expects(_keyCreator == nullptr);
+	Expects(_keyDestroyer == nullptr);
+	Expects(_passwordChanger == nullptr);
+
+	auto removed = [=](Result<> result) {
+		const auto destroyed = base::take(_keyDestroyer);
+		if (!result) {
+			InvokeCallback(done, result);
+			return;
+		}
+		_publicKeys.clear();
+		_secrets.clear();
+		InvokeCallback(done, result);
+	};
+	_keyDestroyer = std::make_unique<KeyDestroyer>(
+		&_external->lib(),
+		_external->saveListMethod(),
+		std::move(removed));
+}
+
 void Wallet::changePassword(
 		const QByteArray &oldPassword,
 		const QByteArray &newPassword,
