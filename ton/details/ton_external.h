@@ -8,7 +8,7 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/ton_result.h"
-#include "storage/cache/storage_cache_database.h"
+#include "storage/storage_databases.h"
 #include "base/bytes.h"
 #include "base/weak_ptr.h"
 
@@ -17,6 +17,8 @@ struct Config;
 } // namespace Ton
 
 namespace Ton::details {
+
+class RequestSender;
 
 struct WalletList {
 	struct Entry {
@@ -64,7 +66,7 @@ private:
 
 	const QString _basePath;
 	RequestSender _lib;
-	Storage::Cache::Database _db;
+	Storage::DatabasePointer _db;
 
 	State _state = State::Initial;
 	bytes::vector _salt;

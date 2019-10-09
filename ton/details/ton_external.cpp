@@ -57,11 +57,10 @@ constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 	return result;
 }
 
-[[nodiscard]] std::unique_ptr<Storage::Cache::Database> MakeDatabase(
+[[nodiscard]] Storage::DatabasePointer MakeDatabase(
 		const QString &basePath) {
-	return std::make_unique<Storage::Cache::Database>(
-		DatabasePath(basePath),
-		DatabaseSettings());
+	static Storage::Databases All;
+	return All.get(DatabasePath(basePath), DatabaseSettings());
 }
 
 [[nodiscard]] Storage::EncryptionKey DatabaseKey(
@@ -136,7 +135,7 @@ void DeleteKeyFromLibrary(
 
 External::External(const QString &path)
 : _basePath(path.endsWith('/') ? path : (path + '/'))
-, _db(DatabasePath(_basePath), DatabaseSettings()) {
+, _db(MakeDatabase(_basePath)) {
 	Expects(!path.isEmpty());
 }
 
@@ -202,9 +201,9 @@ Fn<void(WalletList, Callback<>)> External::saveListMethod() {
 			});
 		};
 		if (list.entries.empty()) {
-			_db.remove(kWalletListKey, std::move(saved));
+			_db->remove(kWalletListKey, std::move(saved));
 		} else {
-			_db.put(kWalletListKey, SerializeList(list), std::move(saved));
+			_db->put(kWalletListKey, SerializeList(list), std::move(saved));
 		}
 	};
 }
@@ -279,12 +278,12 @@ void External::openDatabase(
 
 	const auto weak = base::make_weak(this);
 	auto key = DatabaseKey(bytes::make_span(globalPassword), _salt);
-	_db.open(std::move(key), [=](Storage::Cache::Error error) {
+	_db->open(std::move(key), [=](Storage::Cache::Error error) {
 		crl::on_main(weak, [=] {
 			if (const auto bad = ErrorFromStorage(error)) {
 				InvokeCallback(done, *bad);
 			} else {
-				_db.get(kWalletListKey, [=](QByteArray &&value) {
+				_db->get(kWalletListKey, [=](QByteArray &&value) {
 					crl::on_main(weak, [=] {
 						InvokeCallback(done, DeserializeList(value));
 					});
@@ -319,7 +318,7 @@ void External::startLibrary(const Config &config, Callback<> done) {
 	)).done([=] {
 		InvokeCallback(done);
 	}).fail([=](const TLError &error) {
-		_db.close();
+		_db->close();
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
 }
