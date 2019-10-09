@@ -8,6 +8,7 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_external.h"
+#include "ton/details/ton_storage.h"
 
 namespace Ton::details {
 namespace {
@@ -24,8 +25,10 @@ inline constexpr auto kLocalPasswordSize = size_type(32);
 
 KeyCreator::KeyCreator(
 	not_null<RequestSender*> lib,
+	not_null<Storage::Cache::Database*> db,
 	Fn<void(Result<std::vector<QString>>)> done)
 : _lib(lib)
+, _db(db)
 , _password(GenerateLocalPassword()) {
 	_lib->request(TLCreateNewKey(
 		TLsecureString{ _password },
@@ -49,10 +52,8 @@ void KeyCreator::exportWords(
 	Expects(!_secret.isEmpty());
 
 	_lib->request(TLExportKey(
-		make_inputKey(
-			make_key(
-				tl::make_bytes(_key),
-				TLsecureBytes{ _secret }),
+		tl_inputKey(
+			tl_key(tl_string(_key), TLsecureBytes{ _secret }),
 			TLsecureBytes{ _password })
 	)).done(crl::guard(this, [=](const TLExportedKey &result) {
 		auto list = result.match([&](const TLDexportedKey &data) {
@@ -65,17 +66,15 @@ void KeyCreator::exportWords(
 		_state = State::Created;
 		InvokeCallback(done, std::move(list));
 	})).fail(crl::guard(this, [=](const TLError &error) {
-		auto finish = crl::guard(this, [=](Result<>) {
+		DeletePublicKey(_lib, _key, _secret, crl::guard(this, [=](Result<>) {
 			InvokeCallback(done, ErrorFromLib(error));
-		});
-		DeleteKeyFromLibrary(_lib, _key, _secret, std::move(finish));
+		}));
 	})).send();
 }
 
 void KeyCreator::save(
 		const QByteArray &password,
 		const WalletList &existing,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<WalletList::Entry> done) {
 	if (_password != password) {
 		changePassword(password, [=](Result<> result) {
@@ -84,16 +83,15 @@ void KeyCreator::save(
 				InvokeCallback(done, result.error());
 				return;
 			}
-			saveToDatabase(existing, saveList, done);
+			saveToDatabase(existing, done);
 		});
 	} else {
-		saveToDatabase(existing, std::move(saveList), std::move(done));
+		saveToDatabase(existing, std::move(done));
 	}
 }
 
 void KeyCreator::saveToDatabase(
 		WalletList existing,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<WalletList::Entry> done) {
 	Expects(_state == State::Created);
 	Expects(!_key.isEmpty());
@@ -102,7 +100,7 @@ void KeyCreator::saveToDatabase(
 	_state = State::Saving;
 	const auto added = WalletList::Entry{ _key, _secret };
 	existing.entries.push_back(added);
-	saveList(std::move(existing), crl::guard(this, [=](Result<> result) {
+	SaveWalletList(_db, existing, crl::guard(this, [=](Result<> result) {
 		if (!result) {
 			_state = State::Created;
 			InvokeCallback(done, result.error());
@@ -122,21 +120,18 @@ void KeyCreator::changePassword(
 
 	_state = State::ChangingPassword;
 	_lib->request(TLChangeLocalPassword(
-		make_inputKey(
-			make_key(
-				tl::make_bytes(_key),
-				TLsecureBytes{ _secret }),
+		tl_inputKey(
+			tl_key(tl_string(_key), TLsecureBytes{ _secret }),
 			TLsecureBytes{ _password }),
 		TLsecureBytes{ password }
 	)).done(crl::guard(this, [=](const TLKey &result) {
-		auto finish = crl::guard(this, [=](Result<>) {
+		DeletePublicKey(_lib, _key, _secret, crl::guard(this, [=](Result<>) {
 			result.match([&](const TLDkey &data) {
 				_password = password;
 				_secret = data.vsecret().v;
 				InvokeCallback(done);
 			});
-		});
-		DeleteKeyFromLibrary(_lib, _key, _secret, std::move(finish));
+		}));
 	})).fail(crl::guard(this, [=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	})).send();

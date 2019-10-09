@@ -34,7 +34,6 @@ AccountState Parse(const TLuninited_AccountState &data) {
 	return data.match([&](const TLDuninited_accountState &data) {
 		auto result = AccountState();
 		result.balance = data.vbalance().v;
-		result.frozenHash = data.vfrozen_hash().v;
 		result.lastTransactionId = Parse(data.vlast_transaction_id());
 		result.syncTime = data.vsync_utime().v;
 		return result;
@@ -85,11 +84,11 @@ TransactionsSlice Parse(const TLraw_Transactions &data) {
 	});
 }
 
-SentTransaction Parse(
+PendingTransaction Parse(
 		const TLSendGramsResult &data,
 		const QString &sender,
 		const TransactionToSend &transaction) {
-	auto result = SentTransaction();
+	auto result = PendingTransaction();
 	result.fake.time = QDateTime::currentDateTime().toTime_t();
 	data.match([&](const TLDsendGramsResult &data) {
 		result.sentUntilSyncTime = data.vsent_until().v;

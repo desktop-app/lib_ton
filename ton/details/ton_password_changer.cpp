@@ -12,15 +12,15 @@ namespace Ton::details {
 
 PasswordChanger::PasswordChanger(
 	not_null<RequestSender*> lib,
+	not_null<Storage::Cache::Database*> db,
 	const QByteArray &oldPassword,
 	const QByteArray &newPassword,
 	WalletList &&existing,
-	Fn<void(WalletList, Callback<>)> saveList,
 	Callback<std::vector<QByteArray>> done)
 : _lib(lib)
+, _db(db)
 , _oldPassword(oldPassword)
 , _newPassword(newPassword)
-, _saveList(std::move(saveList))
 , _done(std::move(done))
 , _list(std::move(existing)) {
 	changeNext();
@@ -31,9 +31,9 @@ void PasswordChanger::changeNext() {
 
 	const auto index = _newSecrets.size();
 	_lib->request(TLChangeLocalPassword(
-		make_inputKey(
-			make_key(
-				tl::make_bytes(_list.entries[index].publicKey),
+		tl_inputKey(
+			tl_key(
+				tl_string(_list.entries[index].publicKey),
 				TLsecureBytes{ _list.entries[index].secret }),
 			TLsecureBytes{ _oldPassword }),
 		TLsecureBytes{ _newPassword }
@@ -55,13 +55,14 @@ void PasswordChanger::savedNext(const QByteArray &newSecret) {
 		for (auto i = 0, count = int(_newSecrets.size()); i != count; ++i) {
 			copy.entries[i].secret = _newSecrets[i];
 		}
-		_saveList(std::move(copy), [=](Result<> result) {
+		const auto saved = [=](Result<> result) {
 			if (!result) {
 				rollback(result.error());
 			} else {
 				rollforward();
 			}
-		});
+		};
+		SaveWalletList(_db, copy, crl::guard(this, saved));
 	}
 }
 
@@ -73,11 +74,9 @@ void PasswordChanger::rollback(Error error) {
 	const auto newSecret = _newSecrets.back();
 	_newSecrets.pop_back();
 	const auto key = _list.entries[_newSecrets.size()].publicKey;
-	DeleteKeyFromLibrary(
-		_lib,
-		key,
-		newSecret,
-		crl::guard(this, [=](Result<>) { rollback(error); }));
+	DeletePublicKey(_lib, key, newSecret, crl::guard(this, [=](Result<>) {
+		rollback(error);
+	}));
 }
 
 void PasswordChanger::rollforward() {
@@ -87,7 +86,7 @@ void PasswordChanger::rollforward() {
 	}
 	const auto oldEntry = _list.entries.back();
 	_list.entries.pop_back();
-	DeleteKeyFromLibrary(
+	DeletePublicKey(
 		_lib,
 		oldEntry.publicKey,
 		oldEntry.secret,

@@ -17,7 +17,6 @@ struct AccountState {
 	int64 balance = 0;
 	int64 syncTime = 0;
 	TransactionId lastTransactionId;
-	QByteArray frozenHash;
 	int32 seqNo = 0;
 };
 
@@ -53,7 +52,7 @@ struct TransactionToSend {
 	QString comment;
 };
 
-struct SentTransaction {
+struct PendingTransaction {
 	Transaction fake;
 	int64 sentUntilSyncTime = 0;
 };

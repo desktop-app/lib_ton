@@ -43,9 +43,9 @@ Wallet::~Wallet() = default;
 
 QString Wallet::GetAddress(const QByteArray &publicKey) {
 	return RequestSender::Execute(TLwallet_GetAccountAddress(
-		make_wallet_initialAccountState(tl::make_bytes(publicKey))
+		tl_wallet_initialAccountState(tl_string(publicKey))
 	)).value_or(
-		make_accountAddress(tl::make_string(QString()))
+		tl_accountAddress(tl_string())
 	).match([&](const TLDaccountAddress &data) {
 		return tl::utf16(data.vaccount_address());
 	});
@@ -86,6 +86,7 @@ void Wallet::createKey(Callback<std::vector<QString>> done) {
 	};
 	_keyCreator = std::make_unique<KeyCreator>(
 		&_external->lib(),
+		&_external->db(),
 		std::move(created));
 }
 
@@ -107,7 +108,6 @@ void Wallet::saveKey(
 	_keyCreator->save(
 		password,
 		collectWalletList(),
-		_external->saveListMethod(),
 		std::move(saved));
 }
 
@@ -163,9 +163,9 @@ void Wallet::deleteKey(
 	};
 	_keyDestroyer = std::make_unique<KeyDestroyer>(
 		&_external->lib(),
+		&_external->db(),
 		std::move(list),
 		index,
-		_external->saveListMethod(),
 		std::move(removed));
 }
 
@@ -186,7 +186,7 @@ void Wallet::deleteAllKeys(Callback<> done) {
 	};
 	_keyDestroyer = std::make_unique<KeyDestroyer>(
 		&_external->lib(),
-		_external->saveListMethod(),
+		&_external->db(),
 		std::move(removed));
 }
 
@@ -210,10 +210,10 @@ void Wallet::changePassword(
 	};
 	_passwordChanger = std::make_unique<PasswordChanger>(
 		&_external->lib(),
+		&_external->db(),
 		oldPassword,
 		newPassword,
 		collectWalletList(),
-		_external->saveListMethod(),
 		std::move(changed));
 }
 
@@ -221,7 +221,7 @@ void Wallet::requestState(
 		const QString &address,
 		Callback<AccountState> done) {
 	_external->lib().request(TLgeneric_GetAccountState(
-		make_accountAddress(tl::make_string(address))
+		tl_accountAddress(tl_string(address))
 	)).done([=](const TLgeneric_AccountState &result) {
 		const auto finish = [&](auto &&value) {
 			InvokeCallback(done, std::move(value));
@@ -245,10 +245,8 @@ void Wallet::requestTransactions(
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done) {
 	_external->lib().request(TLraw_GetTransactions(
-		make_accountAddress(tl::make_string(address)),
-		make_internal_transactionId(
-			tl::make_long(lastId.id),
-			tl::make_bytes(lastId.hash))
+		tl_accountAddress(tl_string(address)),
+		tl_internal_transactionId(tl_int64(lastId.id), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
@@ -260,7 +258,7 @@ void Wallet::sendGrams(
 		const QByteArray &publicKey,
 		const QByteArray &password,
 		const TransactionToSend &transaction,
-		Callback<SentTransaction> done) {
+		Callback<PendingTransaction> done) {
 	Expects(transaction.amount > 0);
 
 	const auto sender = GetAddress(publicKey);
@@ -271,17 +269,15 @@ void Wallet::sendGrams(
 	Assert(index < _secrets.size());
 
 	_external->lib().request(TLgeneric_SendGrams(
-		make_inputKey(
-			make_key(
-				tl::make_bytes(publicKey),
-				TLsecureBytes{ _secrets[index] }),
+		tl_inputKey(
+			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
 			TLsecureBytes{ password }),
-		make_accountAddress(tl::make_string(sender)),
-		make_accountAddress(tl::make_string(transaction.recipient)),
-		tl::make_long(transaction.amount),
-		tl::make_int(transaction.timeout),
+		tl_accountAddress(tl_string(sender)),
+		tl_accountAddress(tl_string(transaction.recipient)),
+		tl_int64(transaction.amount),
+		tl_int32(transaction.timeout),
 		tl_from(transaction.allowSendToUninited),
-		tl::make_string(transaction.comment)
+		tl_string(transaction.comment)
 	)).done([=](const TLSendGramsResult &result) {
 		InvokeCallback(done, Parse(result, sender, transaction));
 	}).fail([=](const TLError &error) {

@@ -12,6 +12,12 @@
 #include "base/bytes.h"
 #include "base/weak_ptr.h"
 
+namespace Storage {
+namespace Cache {
+class Database;
+} // namespace Cache
+} // namespace Storage
+
 namespace Ton {
 struct Config;
 } // namespace Ton
@@ -19,23 +25,7 @@ struct Config;
 namespace Ton::details {
 
 class RequestSender;
-
-struct WalletList {
-	struct Entry {
-		QByteArray publicKey;
-		QByteArray secret;
-	};
-	std::vector<Entry> entries;
-};
-
-[[nodiscard]] std::optional<Error> ErrorFromStorage(
-	const Storage::Cache::Error &error);
-
-void DeleteKeyFromLibrary(
-	not_null<RequestSender*> lib,
-	const QByteArray &publicKey,
-	const QByteArray &secret,
-	Callback<> done);
+struct WalletList;
 
 class External final : public base::has_weak_ptr {
 public:
@@ -48,7 +38,7 @@ public:
 	void setConfig(const Config &config, Callback<> done);
 
 	[[nodiscard]] RequestSender &lib();
-	[[nodiscard]] Fn<void(WalletList, Callback<>)> saveListMethod();
+	[[nodiscard]] Storage::Cache::Database &db();
 
 private:
 	enum class State {

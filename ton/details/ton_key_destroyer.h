@@ -9,6 +9,12 @@
 #include "base/weak_ptr.h"
 #include "ton/ton_result.h"
 
+namespace Storage {
+namespace Cache {
+class Database;
+} // namespace Cache
+} // namespace Storage
+
 namespace Ton::details {
 
 class RequestSender;
@@ -18,13 +24,13 @@ class KeyDestroyer final : public base::has_weak_ptr {
 public:
 	KeyDestroyer(
 		not_null<RequestSender*> lib,
+		not_null<Storage::Cache::Database*> db,
 		const WalletList &existing,
 		index_type index,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<> done);
 	KeyDestroyer(
 		not_null<RequestSender*> lib,
-		Fn<void(WalletList, Callback<>)> saveList,
+		not_null<Storage::Cache::Database*> db,
 		Callback<> done);
 
 };

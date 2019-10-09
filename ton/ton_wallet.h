@@ -26,7 +26,7 @@ struct AccountState;
 struct TransactionId;
 struct TransactionsSlice;
 struct TransactionToSend;
-struct SentTransaction;
+struct PendingTransaction;
 
 class Wallet final {
 public:
@@ -63,7 +63,7 @@ public:
 		const QByteArray &publicKey,
 		const QByteArray &password,
 		const TransactionToSend &transaction,
-		Callback<SentTransaction> done);
+		Callback<PendingTransaction> done);
 
 private:
 	void setWalletList(const details::WalletList &list);

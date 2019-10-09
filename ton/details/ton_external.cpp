@@ -7,6 +7,7 @@
 #include "ton/details/ton_external.h"
 
 #include "ton/details/ton_request_sender.h"
+#include "ton/details/ton_storage.h"
 #include "ton/ton_config.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
@@ -24,7 +25,6 @@ namespace {
 
 constexpr auto kSaltSize = size_type(32);
 constexpr auto kIterations = 100'000;
-constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
 constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 
 [[nodiscard]] QString SubPath(const QString &basePath, const QString &name) {
@@ -71,67 +71,7 @@ constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 		openssl::Pbkdf2Sha512(password, salt, iterations));
 }
 
-[[nodiscard]] QByteArray SerializeList(const WalletList &list) {
-	auto result = QByteArray();
-	{
-		auto stream = QDataStream(&result, QIODevice::WriteOnly);
-		stream.setVersion(QDataStream::Qt_5_3);
-		stream << qint32(list.entries.size());
-		for (const auto &[key, secret] : list.entries) {
-			stream << key << secret;
-		}
-	}
-	return result;
-}
-
-[[nodiscard]] WalletList DeserializeList(QByteArray value) {
-	if (value.isEmpty()) {
-		return {};
-	}
-
-	auto result = WalletList();
-	auto stream = QDataStream(&value, QIODevice::ReadOnly);
-	stream.setVersion(QDataStream::Qt_5_3);
-	auto count = qint32();
-	stream >> count;
-	if (count <= 0 || stream.status() != QDataStream::Ok) {
-		return {};
-	}
-	result.entries.resize(count);
-	for (auto &[key, secret] : result.entries) {
-		stream >> key >> secret;
-	}
-	if (stream.status() != QDataStream::Ok || !stream.atEnd()) {
-		return {};
-	}
-	return result;
-}
-
 } // namespace
-
-std::optional<Error> ErrorFromStorage(const Storage::Cache::Error &error) {
-	using Type = Storage::Cache::Error::Type;
-	if (error.type == Type::IO || error.type == Type::LockFailed) {
-		return Error{ Error::Type::IO, error.path };
-	} else if (error.type == Type::WrongKey) {
-		return Error{ Error::Type::WrongPassword };
-	}
-	return std::nullopt;
-}
-
-void DeleteKeyFromLibrary(
-		not_null<RequestSender*> lib,
-		const QByteArray &publicKey,
-		const QByteArray &secret,
-		Callback<> done) {
-	lib->request(TLDeleteKey(
-		make_key(tl::make_bytes(publicKey), TLsecureBytes{ secret })
-	)).done([=] {
-		InvokeCallback(done);
-	}).fail([=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
-	}).send();
-}
 
 External::External(const QString &path)
 : _basePath(path.endsWith('/') ? path : (path + '/'))
@@ -172,9 +112,9 @@ void External::open(
 
 void External::setConfig(const Config &config, Callback<> done) {
 	_lib.request(TLoptions_SetConfig(
-		make_config(
-			tl::make_bytes(config.json),
-			tl::make_string(config.blockchainName),
+		tl_config(
+			tl_string(config.json),
+			tl_string(config.blockchainName),
 			tl_from(config.useNetworkCallbacks),
 			tl_from(config.ignoreCache))
 	)).done([=] {
@@ -188,24 +128,8 @@ RequestSender &External::lib() {
 	return _lib;
 }
 
-Fn<void(WalletList, Callback<>)> External::saveListMethod() {
-	return [=](WalletList list, Callback<> done) {
-		const auto weak = base::make_weak(this);
-		auto saved = [=](Storage::Cache::Error error) {
-			crl::on_main(weak, [=] {
-				if (const auto bad = ErrorFromStorage(error)) {
-					InvokeCallback(done, *bad);
-				} else {
-					InvokeCallback(done);
-				}
-			});
-		};
-		if (list.entries.empty()) {
-			_db->remove(kWalletListKey, std::move(saved));
-		} else {
-			_db->put(kWalletListKey, SerializeList(list), std::move(saved));
-		}
-	};
+Storage::Cache::Database &External::db() {
+	return *_db;
 }
 
 Result<> External::loadSalt() {
@@ -283,11 +207,10 @@ void External::openDatabase(
 			if (const auto bad = ErrorFromStorage(error)) {
 				InvokeCallback(done, *bad);
 			} else {
-				_db->get(kWalletListKey, [=](QByteArray &&value) {
-					crl::on_main(weak, [=] {
-						InvokeCallback(done, DeserializeList(value));
-					});
-				});
+				const auto loaded = [=](WalletList &&result) {
+					InvokeCallback(done, std::move(result));
+				};
+				LoadWalletList(_db.get(), crl::guard(weak, loaded));
 			}
 		});
 	});
@@ -302,19 +225,19 @@ void External::startLibrary(const Config &config, Callback<> done) {
 
 #ifdef _DEBUG
 	RequestSender::Execute(TLSetLogStream(
-		make_logStreamFile(
-			tl::make_string(TonLibLogPath(_basePath)),
-			tl::make_long(kMaxTonLibLogSize))));
+		tl_logStreamFile(
+			tl_string(TonLibLogPath(_basePath)),
+			tl_int53(kMaxTonLibLogSize))));
 #endif // _DEBUG
 
 	_lib.request(TLInit(
-		make_options(
-			make_config(
-				tl::make_bytes(config.json),
-				tl::make_string(config.blockchainName),
+		tl_options(
+			tl_config(
+				tl_string(config.json),
+				tl_string(config.blockchainName),
 				tl_from(config.useNetworkCallbacks),
 				tl_from(config.ignoreCache)),
-			make_keyStoreTypeDirectory(tl::make_string(path)))
+			tl_keyStoreTypeDirectory(tl_string(path)))
 	)).done([=] {
 		InvokeCallback(done);
 	}).fail([=](const TLError &error) {

@@ -9,6 +9,13 @@
 #include "base/weak_ptr.h"
 #include "ton/ton_result.h"
 #include "ton/details/ton_external.h"
+#include "ton/details/ton_storage.h"
+
+namespace Storage {
+namespace Cache {
+class Database;
+} // namespace Cache
+} // namespace Storage
 
 namespace Ton {
 struct Error;
@@ -23,10 +30,10 @@ class PasswordChanger final : public base::has_weak_ptr {
 public:
 	PasswordChanger(
 		not_null<RequestSender*> lib,
+		not_null<Storage::Cache::Database*> db,
 		const QByteArray &oldPassword,
 		const QByteArray &newPassword,
 		WalletList &&existing,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<std::vector<QByteArray>> done);
 
 private:
@@ -36,9 +43,9 @@ private:
 	void rollforward();
 
 	const not_null<RequestSender*> _lib;
+	const not_null<Storage::Cache::Database*> _db;
 	const QByteArray _oldPassword;
 	const QByteArray _newPassword;
-	const Fn<void(WalletList, Callback<>)> _saveList;
 	const Callback<std::vector<QByteArray>> _done;
 	WalletList _list;
 	std::vector<QByteArray> _newSecrets;

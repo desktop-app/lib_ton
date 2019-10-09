@@ -19,52 +19,26 @@ generate({
     'type': 'TL',
     'data': 'TLD',
     'id': 'id',
-    'construct': 'tl_',
+    'construct': 'make_',
   },
   'types': {
+    'prime': 'char',
     'typeId': 'uint32',
+    'buffer': 'QByteArray',
   },
   'sections': [
+    'read-write',
   ],
 
-  'skip': [
-    'double ? = Double;',
-    'string ? = String;',
-
-    'int32 = Int32;',
-    'int53 = Int53;',
-    'int64 = Int64;',
-    'bytes = Bytes;',
-    'secureString = SecureString;',
-    'secureBytes = SecureBytes;',
-
-    'vector {t:Type} # [ t ] = Vector t;',
-  ],
   'builtin': [
-    'double',
     'string',
     'int32',
-    'int53',
     'int64',
     'bytes',
-    'secureString',
-    'secureBytes',
   ],
   'builtinTemplates': [
     'vector',
   ],
   'builtinInclude': 'ton/details/ton_tl_core.h',
-  'nullable': [
-    'config',
-  ],
-
-  'conversion': {
-    'include': 'auto/tl/tonlib_api.h',
-    'namespace': 'ton::tonlib_api',
-    'builtinAdditional': [
-      'bool',
-    ],
-    'builtinInclude': 'ton/details/ton_tl_core_conversion.h',
-  },
 
 })

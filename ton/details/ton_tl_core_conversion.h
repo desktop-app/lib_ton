@@ -31,7 +31,7 @@ auto tl_from(std::vector<T> &&value) {
 	for (auto &element : value) {
 		result.push_back(tl_from(std::move(element)));
 	}
-	return tl::make_vector<U>(std::move(result));
+	return tl_vector<U>(std::move(result));
 }
 
 template <typename T>

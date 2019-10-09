@@ -8,14 +8,15 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_external.h"
+#include "ton/details/ton_storage.h"
 
 namespace Ton::details {
 
 KeyDestroyer::KeyDestroyer(
 		not_null<details::RequestSender*> lib,
+		not_null<Storage::Cache::Database*> db,
 		const details::WalletList &existing,
 		index_type index,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<> done) {
 	Expects(index >= 0 && index < existing.entries.size());
 
@@ -23,9 +24,9 @@ KeyDestroyer::KeyDestroyer(
 	auto removeFromDatabase = crl::guard(this, [=](Result<>) {
 		auto copy = existing;
 		copy.entries.erase(begin(copy.entries) + index);
-		saveList(std::move(copy), crl::guard(this, done));
+		SaveWalletList(db, copy, crl::guard(this, done));
 	});
-	DeleteKeyFromLibrary(
+	DeletePublicKey(
 		lib,
 		entry.publicKey,
 		entry.secret,
@@ -34,10 +35,10 @@ KeyDestroyer::KeyDestroyer(
 
 KeyDestroyer::KeyDestroyer(
 		not_null<RequestSender*> lib,
-		Fn<void(WalletList, Callback<>)> saveList,
+		not_null<Storage::Cache::Database*> db,
 		Callback<> done) {
 	const auto removeFromDatabase = crl::guard(this, [=](const auto&) {
-		saveList(WalletList(), crl::guard(this, done));
+		SaveWalletList(db, {}, crl::guard(this, done));
 	});
 	lib->request(TLDeleteAllKeys(
 	)).done(

@@ -63,6 +63,8 @@
       '<(src_loc)/ton/details/ton_password_changer.h',
       '<(src_loc)/ton/details/ton_request_sender.cpp',
       '<(src_loc)/ton/details/ton_request_sender.h',
+      '<(src_loc)/ton/details/ton_storage.cpp',
+      '<(src_loc)/ton/details/ton_storage.h',
       '<(src_loc)/ton/details/ton_tl_core.h',
       '<(src_loc)/ton/details/ton_tl_core_conversion.cpp',
       '<(src_loc)/ton/details/ton_tl_core_conversion.h',
@@ -203,8 +205,8 @@
       'outputs': [
         '<(SHARED_INTERMEDIATE_DIR)/ton_tl.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/ton_tl.h',
-        '<(SHARED_INTERMEDIATE_DIR)/ton_tl_conversion.cpp',
-        '<(SHARED_INTERMEDIATE_DIR)/ton_tl_conversion.h',
+        '<(SHARED_INTERMEDIATE_DIR)/ton_tl-conversion.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/ton_tl-conversion.h',
       ],
       'action': [
         'python', '<(src_loc)/ton/details/ton_tl_generate.py',
@@ -212,6 +214,24 @@
         '<(libs_loc)/ton/tl/generate/scheme/tonlib_api.tl',
       ],
       'message': 'codegen_tl-ing tonlib_api.tl..',
+      'process_outputs_as_sources': 1,
+    }, {
+      'action_name': 'codegen_storage_tl',
+      'inputs': [
+        '<(src_loc)/ton/details/ton_storage_tl_generate.py',
+        '<(submodules_loc)/lib_tl/tl/generate_tl.py',
+        '<(src_loc)/ton/details/ton_storage.tl',
+      ],
+      'outputs': [
+        '<(SHARED_INTERMEDIATE_DIR)/ton_storage_tl.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/ton_storage_tl.h',
+      ],
+      'action': [
+        'python', '<(src_loc)/ton/details/ton_storage_tl_generate.py',
+        '-o', '<(SHARED_INTERMEDIATE_DIR)/ton_storage_tl',
+        '<(src_loc)/ton/details/ton_storage.tl',
+      ],
+      'message': 'codegen_tl-ing ton_storage.tl..',
       'process_outputs_as_sources': 1,
     }],
   }],

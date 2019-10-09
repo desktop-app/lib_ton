@@ -7,22 +7,28 @@
 #pragma once
 
 #include "ton/details/ton_external.h"
+#include "ton/details/ton_storage.h"
+
+namespace Storage {
+namespace Cache {
+class Database;
+} // namespace Cache
+} // namespace Storage
 
 namespace Ton::details {
 
 class RequestSender;
-struct WalletList;
 
 class KeyCreator final : public base::has_weak_ptr {
 public:
 	KeyCreator(
 		not_null<RequestSender*> lib,
+		not_null<Storage::Cache::Database*> db,
 		Fn<void(Result<std::vector<QString>>)> done);
 
 	void save(
 		const QByteArray &password,
 		const WalletList &existing,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<WalletList::Entry> done);
 
 private:
@@ -37,10 +43,10 @@ private:
 	void changePassword(const QByteArray &password, Callback<> done);
 	void saveToDatabase(
 		WalletList existing,
-		Fn<void(WalletList, Callback<>)> saveList,
 		Callback<WalletList::Entry> done);
 
 	const not_null<RequestSender*> _lib;
+	const not_null<Storage::Cache::Database*> _db;
 
 	State _state = State::Creating;
 	QByteArray _key;

@@ -64,18 +64,18 @@ void Start(Callback<> done) {
 	Expects(!GlobalSender);
 
 	const auto ok1 = RequestSender::Execute(TLSetLogStream(
-		make_logStreamEmpty()));
+		tl_logStreamEmpty()));
 	Assert(ok1);
 
 	const auto ok2 = RequestSender::Execute(TLSetLogVerbosityLevel(
-		tl::make_int(0)));
+		tl_int32(0)));
 	Assert(ok2);
 
 	GlobalSender = std::make_unique<RequestSender>();
 	GlobalSender->request(TLInit(
-		make_options(
+		tl_options(
 			nullptr,
-			make_keyStoreTypeInMemory())
+			tl_keyStoreTypeInMemory())
 	)).done([=] {
 		done({});
 	}).fail(ErrorHandler(done)).send();
@@ -83,7 +83,7 @@ void Start(Callback<> done) {
 
 void GetValidWords(Fn<void(std::vector<QByteArray>)> done) {
 	const auto result = RequestSender::Execute(TLGetBip39Hints(
-		tl::make_string()));
+		tl_string()));
 	Assert(result);
 
 	result->match([&](const TLDbip39Hints &data) {
@@ -105,9 +105,7 @@ void CreateKey(
 			QByteArray secret,
 			const UtilityKey &key) {
 		GlobalSender->request(TLDeleteKey(
-			make_key(
-				tl::make_bytes(key.publicKey),
-				TLsecureString{ secret })
+			tl_key(tl_string(key.publicKey), TLsecureString{ secret })
 		)).done([=] {
 			done(key);
 		}).fail([=] {
@@ -123,10 +121,8 @@ void CreateKey(
 			const auto publicKey = result.vpublic_key().v;
 			const auto secret = result.vsecret().v;
 			GlobalSender->request(TLExportKey(
-				make_inputKey(
-					make_key(
-						tl::make_bytes(publicKey),
-						TLsecureString{ secret }),
+				tl_inputKey(
+					tl_key(tl_string(publicKey), TLsecureString{ secret }),
 					LocalPassword())
 			)).done([=](const TLexportedKey &result) {
 				result.match([&](const TLDexportedKey &data) {
@@ -156,16 +152,13 @@ void CheckKey(
 	GlobalSender->request(TLImportKey(
 		LocalPassword(),
 		MnemonicPassword(),
-		make_exportedKey(tl::make_vector<TLsecureString>(
-			std::move(wrapped)))
+		tl_exportedKey(tl_vector<TLsecureString>(std::move(wrapped)))
 	)).done([=](const TLkey &result) {
 		result.match([=](const TLDkey &result) {
 			const auto publicKey = result.vpublic_key().v;
 			const auto secret = result.vsecret().v;
 			GlobalSender->request(TLDeleteKey(
-				make_key(
-					tl::make_bytes(publicKey),
-					TLsecureString{ secret })
+				tl_key(tl_string(publicKey), TLsecureString{ secret })
 			)).done([=] {
 				done(publicKey);
 			}).fail([=] {

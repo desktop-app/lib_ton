@@ -9,7 +9,7 @@
 namespace Ton::details {
 
 TLstring tl_from(std::string &&value) {
-	return tl::make_string(value);
+	return tl_string(value);
 }
 
 std::string tl_to(const TLstring &value) {
@@ -25,7 +25,7 @@ td::SecureString tl_to(const TLsecureString &value) {
 }
 
 TLint32 tl_from(std::int32_t value) {
-	return tl::make_int(value);
+	return tl_int32(value);
 }
 
 std::int32_t tl_to(const TLint32 &value) {
@@ -33,7 +33,7 @@ std::int32_t tl_to(const TLint32 &value) {
 }
 
 TLint64 tl_from(std::int64_t value) {
-	return tl::make_long(value);
+	return tl_int64(value);
 }
 
 std::int64_t tl_to(const TLint64 &value) {
@@ -41,7 +41,7 @@ std::int64_t tl_to(const TLint64 &value) {
 }
 
 TLbool tl_from(bool value) {
-	return value ? make_boolTrue() : make_boolFalse();
+	return value ? tl_boolTrue() : tl_boolFalse();
 }
 
 bool tl_to(const TLbool &value) {
