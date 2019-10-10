@@ -13,12 +13,17 @@ struct TransactionId {
 	QByteArray hash;
 };
 
+[[nodiscard]] bool operator==(
+	const TransactionId &a,
+	const TransactionId &b);
+
 struct AccountState {
 	int64 balance = 0;
 	int64 syncTime = 0;
 	TransactionId lastTransactionId;
-	int32 seqNo = 0;
 };
+
+[[nodiscard]] bool operator==(const AccountState &a, const AccountState &b);
 
 struct Message {
 	QString source;
@@ -26,7 +31,7 @@ struct Message {
 	int64 value = 0;
 	int64 created = 0;
 	QByteArray bodyHash;
-	QByteArray message;
+	QString message;
 };
 
 struct Transaction {
@@ -39,10 +44,16 @@ struct Transaction {
 	std::vector<Message> outgoing;
 };
 
+[[nodiscard]] bool operator==(const Transaction &a, const Transaction &b);
+
 struct TransactionsSlice {
 	std::vector<Transaction> list;
 	TransactionId previousId;
 };
+
+[[nodiscard]] bool operator==(
+	const TransactionsSlice &a,
+	const TransactionsSlice &b);
 
 struct TransactionToSend {
 	QString recipient;
@@ -57,11 +68,18 @@ struct PendingTransaction {
 	int64 sentUntilSyncTime = 0;
 };
 
+[[nodiscard]] bool operator==(
+	const PendingTransaction &a,
+	const PendingTransaction &b);
+
 struct WalletState {
 	QString address;
 	AccountState account;
 	TransactionsSlice lastTransactions;
 	std::vector<PendingTransaction> pendingTransactions;
 };
+
+[[nodiscard]] bool operator==(const WalletState &a, const WalletState &b);
+[[nodiscard]] bool operator!=(const WalletState &a, const WalletState &b);
 
 } // namespace Ton

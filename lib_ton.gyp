@@ -49,6 +49,8 @@
       '<(submodules_loc)/lib_storage/lib_storage.gyp:lib_storage',
     ],
     'sources': [
+      '<(src_loc)/ton/details/ton_account_viewers.cpp',
+      '<(src_loc)/ton/details/ton_account_viewers.h',
       '<(src_loc)/ton/details/ton_external.cpp',
       '<(src_loc)/ton/details/ton_external.h',
       '<(src_loc)/ton/details/ton_client.cpp',
@@ -72,6 +74,7 @@
       '<(src_loc)/ton/ton_account_viewer.h',
       '<(src_loc)/ton/ton_config.h',
       '<(src_loc)/ton/ton_result.h',
+      '<(src_loc)/ton/ton_state.cpp',
       '<(src_loc)/ton/ton_state.h',
       '<(src_loc)/ton/ton_utility.cpp',
       '<(src_loc)/ton/ton_utility.h',

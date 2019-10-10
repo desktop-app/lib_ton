@@ -8,7 +8,7 @@
 
 #include "ton/ton_result.h"
 #include "ton/ton_state.h"
-#include "base/timer.h"
+#include "base/weak_ptr.h"
 
 namespace Storage::Cache {
 class Database;
@@ -21,6 +21,7 @@ class External;
 class KeyCreator;
 class KeyDestroyer;
 class PasswordChanger;
+class AccountViewers;
 } // namespace details
 
 struct Config;
@@ -68,31 +69,17 @@ public:
 		const QString &address);
 
 private:
-	struct Viewers {
-		rpl::variable<WalletState> state;
-		crl::time lastRefresh = 0;
-		crl::time nextRefresh = 0;
-		bool refreshing = false;
-		std::vector<not_null<AccountViewer*>> list;
-		rpl::lifetime lifetime;
-	};
-
-	void refreshAccount(const QString &address, Viewers &viewers);
-	void checkNextRefresh();
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
 
 	const std::unique_ptr<details::External> _external;
+	const std::unique_ptr<details::AccountViewers> _accountViewers;
 	std::unique_ptr<details::KeyCreator> _keyCreator;
 	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
 	std::unique_ptr<details::PasswordChanger> _passwordChanger;
 
 	std::vector<QByteArray> _publicKeys;
 	std::vector<QByteArray> _secrets;
-
-	base::flat_map<QString, Viewers> _accountViewers;
-
-	base::Timer _refreshTimer;
 
 };
 

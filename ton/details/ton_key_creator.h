@@ -9,11 +9,9 @@
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_storage.h"
 
-namespace Storage {
-namespace Cache {
+namespace Storage::Cache {
 class Database;
-} // namespace Cache
-} // namespace Storage
+} // namespace Storage::Cache
 
 namespace Ton::details {
 

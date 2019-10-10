@@ -12,11 +12,9 @@
 #include "base/bytes.h"
 #include "base/weak_ptr.h"
 
-namespace Storage {
-namespace Cache {
+namespace Storage::Cache {
 class Database;
-} // namespace Cache
-} // namespace Storage
+} // namespace Storage::Cache
 
 namespace Ton {
 struct Config;

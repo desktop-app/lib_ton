@@ -6,6 +6,7 @@
 //
 #include "ton/ton_wallet.h"
 
+#include "ton/details/ton_account_viewers.h"
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_key_creator.h"
 #include "ton/details/ton_key_destroyer.h"
@@ -34,19 +35,18 @@ using namespace details;
 
 Wallet::Wallet(const QString &path)
 : _external(std::make_unique<External>(path))
-, _refreshTimer([=] { checkNextRefresh(); }) {
+, _accountViewers(
+	std::make_unique<AccountViewers>(
+		this,
+		&_external->lib(),
+		&_external->db())) {
 	crl::async([] {
 		// Init random, because it is slow.
 		static_cast<void>(openssl::RandomValue<uint8>());
 	});
 }
 
-Wallet::~Wallet() {
-	for (const auto &[address, viewers] : _accountViewers) {
-		Assert(viewers.list.empty());
-	}
-	_accountViewers.clear();
-}
+Wallet::~Wallet() = default;
 
 QString Wallet::GetAddress(const QByteArray &publicKey) {
 	return RequestSender::Execute(TLwallet_GetAccountAddress(
@@ -292,124 +292,9 @@ void Wallet::requestTransactions(
 	}).send();
 }
 
-void Wallet::refreshAccount(const QString &address, Viewers &viewers) {
-	viewers.refreshing = true;
-	requestState(address, [=](Result<AccountState> result) {
-		const auto i = _accountViewers.find(address);
-		Assert(i != end(_accountViewers));
-		if (i->second.list.empty()) {
-			_accountViewers.erase(i);
-			return;
-		} else if (!result) {
-			// ?? #TODO
-			i->second.refreshing = false;
-			i->second.lastRefresh = crl::now();
-			checkNextRefresh();
-			return;
-		}
-		const auto &state = *result;
-		auto received = [=](Result<TransactionsSlice> result) {
-			const auto i = _accountViewers.find(address);
-			Assert(i != end(_accountViewers));
-			if (i->second.list.empty()) {
-				_accountViewers.erase(i);
-				return;
-			} else if (!result) {
-				// ?? #TODO
-				i->second.refreshing = false;
-				i->second.lastRefresh = crl::now();
-				checkNextRefresh();
-				return;
-			}
-			const auto weak = base::make_weak(this);
-			i->second.refreshing = false;
-			i->second.lastRefresh = crl::now();
-			i->second.state = WalletState{
-				address,
-				state,
-				std::move(*result)
-			};
-			if (weak) {
-				checkNextRefresh();
-			}
-		};
-		requestTransactions(address, result->lastTransactionId, received);
-	});
-}
-
-void Wallet::checkNextRefresh() {
-	constexpr auto kNoRefresh = std::numeric_limits<crl::time>::max();
-	auto minWait = kNoRefresh;
-	const auto now = crl::now();
-	for (auto &[address, viewers] : _accountViewers) {
-		if (viewers.refreshing) {
-			continue;
-		}
-		Assert(viewers.lastRefresh > 0);
-		Assert(!viewers.list.empty());
-		const auto j = ranges::min_element(
-			viewers.list,
-			ranges::less(),
-			&AccountViewer::refreshEach);
-		const auto min = (*j)->refreshEach();
-		const auto next = viewers.nextRefresh = viewers.lastRefresh + min;
-		const auto in = next - now;
-		if (in <= 0) {
-			refreshAccount(address, viewers);
-			continue;
-		}
-		if (minWait > in) {
-			minWait = in;
-		}
-	}
-	if (minWait != kNoRefresh) {
-		_refreshTimer.callOnce(minWait);
-	}
-}
-
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
 		const QString &address) {
-	const auto i = _accountViewers.emplace(
-		address,
-		Viewers{ WalletState{ address } }
-	).first;
-
-	auto result = std::make_unique<AccountViewer>(i->second.state.value());
-	const auto raw = result.get();
-	i->second.list.push_back(raw);
-
-	if (!i->second.nextRefresh) {
-		i->second.nextRefresh = raw->refreshEach();
-		refreshAccount(address, i->second);
-	}
-
-	raw->refreshEachValue(
-	) | rpl::start_with_next_done([=] {
-		checkNextRefresh();
-	}, [=] {
-		const auto i = _accountViewers.find(address);
-		Assert(i != end(_accountViewers));
-		i->second.list.erase(
-			ranges::remove(
-				i->second.list,
-				raw,
-				&not_null<AccountViewer*>::get),
-			end(i->second.list));
-		if (i->second.list.empty() && !i->second.refreshing) {
-			_accountViewers.erase(i);
-		}
-	}, i->second.lifetime);
-
-	raw->refreshNowRequests(
-	) | rpl::start_with_next([=] {
-		const auto i = _accountViewers.find(address);
-		Assert(i != end(_accountViewers));
-		if (!i->second.refreshing) {
-			refreshAccount(address, i->second);
-		}
-	}, i->second.lifetime);
-
-	return result;
+	return _accountViewers->createAccountViewer(address);
 }
 
 } // namespace Ton

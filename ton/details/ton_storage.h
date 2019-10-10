@@ -8,12 +8,10 @@
 
 #include "ton/ton_result.h"
 
-namespace Storage {
-namespace Cache {
+namespace Storage::Cache {
 class Database;
 struct Error;
-} // namespace Cache
-} // namespace Storage
+} // namespace Storage::Cache
 
 namespace Ton {
 struct TransactionId;
@@ -54,7 +52,13 @@ void LoadWalletList(
 	not_null<Storage::Cache::Database*> db,
 	Fn<void(WalletList&&)> done);
 
-[[nodiscard]] QByteArray Pack(const WalletList &data);
-[[nodiscard]] WalletList Unpack(const QByteArray &data);
+void SaveWalletState(
+	not_null<Storage::Cache::Database*> db,
+	const WalletState &state,
+	Callback<> done);
+void LoadWalletState(
+	not_null<Storage::Cache::Database*> db,
+	const QString &address,
+	Fn<void(WalletState&&)> done);
 
 } // namespace Ton::details

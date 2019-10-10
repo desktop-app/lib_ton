@@ -24,7 +24,6 @@ AccountState Parse(const TLwallet_AccountState &data) {
 		auto result = AccountState();
 		result.balance = data.vbalance().v;
 		result.lastTransactionId = Parse(data.vlast_transaction_id());
-		result.seqNo = data.vseqno().v;
 		result.syncTime = data.vsync_utime().v;
 		return result;
 	});
