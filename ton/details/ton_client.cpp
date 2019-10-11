@@ -7,6 +7,21 @@
 #include "ton/details/ton_client.h"
 
 namespace Ton::details {
+namespace {
+
+constexpr auto kMinRequestResendDelay = crl::time(100);
+constexpr auto kMaxRequestResendDelay = 60 * crl::time(1000);
+
+crl::time NextRequestResendDelay(crl::time currentDelay) {
+	return !currentDelay
+		? kMinRequestResendDelay
+		: std::clamp(
+			currentDelay * 2,
+			crl::time(1000),
+			kMaxRequestResendDelay);
+}
+
+} // namespace
 
 Client::Client() : _thread([=] { check(); }) {
 }
@@ -16,22 +31,44 @@ Client::~Client() {
 	QMutexLocker lock(&_mutex);
 	_handlers.clear();
 	lock.unlock();
-	send(tonlib_api::make_object<tonlib_api::close>(), nullptr);
+	send(
+		[] { return tonlib_api::make_object<tonlib_api::close>(); },
+		nullptr);
 	_thread.join();
 }
 
 RequestId Client::send(
-		LibRequest request,
-		FnMut<void(LibResponse)> handler) {
+		Fn<LibRequest()> request,
+		FnMut<bool(LibResponse)> handler) {
 	const auto requestId = (_requestIdAutoIncrement++) + 1;
+	const auto libRequestId = (_libRequestIdAutoIncrement++) + 1;
+	auto sending = request();
 
+	QMutexLocker lock(&_mutex);
+	_requestIdByLibRequestId.emplace(libRequestId, requestId);
+	_requests.emplace(requestId, std::move(request));
 	if (handler) {
-		QMutexLocker lock(&_mutex);
 		_handlers.emplace(requestId, std::move(handler));
 	}
+	lock.unlock();
 
-	_wrapped.send({ requestId, std::move(request) });
+	_wrapped.send({ libRequestId, std::move(sending) });
 	return requestId;
+}
+
+void Client::resend(RequestId requestId) {
+	const auto libRequestId = (_libRequestIdAutoIncrement++) + 1;
+
+	QMutexLocker lock(&_mutex);
+	const auto i = _requests.find(requestId);
+	if (i == end(_requests)) {
+		return;
+	}
+	auto request = i->second;
+	_requestIdByLibRequestId.emplace(libRequestId, requestId);
+	lock.unlock();
+
+	_wrapped.send({ libRequestId, request() });
 }
 
 Client::LibResponse Client::Execute(LibRequest request) {
@@ -40,7 +77,19 @@ Client::LibResponse Client::Execute(LibRequest request) {
 
 void Client::cancel(RequestId requestId) {
 	QMutexLocker lock(&_mutex);
+	_requests.remove(requestId);
 	_handlers.remove(requestId);
+}
+
+void Client::scheduleResendOnError(RequestId requestId) {
+	crl::on_main(this, [=] {
+		const auto delay = _requestResendDelays.take(requestId).value_or(0);
+		const auto nextDelay = NextRequestResendDelay(delay);
+		_requestResendDelays.emplace(requestId, nextDelay);
+		_resendTimer.call(nextDelay, [=] {
+			resend(requestId);
+		});
+	});
 }
 
 void Client::check() {
@@ -50,11 +99,24 @@ void Client::check() {
 			continue;
 		}
 		QMutexLocker lock(&_mutex);
-		auto handler = _handlers.take(response.id);
+		const auto requestId = _requestIdByLibRequestId.take(response.id);
+		auto handler = requestId ? _handlers.take(*requestId) : std::nullopt;
 		lock.unlock();
 
 		if (handler) {
-			(*handler)(std::move(response.object));
+			if ((*handler)(std::move(response.object))) {
+				QMutexLocker lock(&_mutex);
+				_requests.remove(*requestId);
+			} else {
+				QMutexLocker lock(&_mutex);
+				_handlers.emplace(*requestId, std::move(*handler));
+				lock.unlock();
+
+				scheduleResendOnError(*requestId);
+			}
+		} else if (requestId) {
+			QMutexLocker lock(&_mutex);
+			_requests.remove(*requestId);
 		}
 	}
 }

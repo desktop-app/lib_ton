@@ -6,6 +6,9 @@
 //
 #pragma once
 
+#include "base/timer.h"
+#include "base/weak_ptr.h"
+
 #include <QtCore/QMutex>
 #include <auto/tl/tonlib_api.h>
 #include <tonlib/Client.h>
@@ -17,7 +20,7 @@ namespace Ton::details {
 namespace tonlib_api = ::ton::tonlib_api;
 using RequestId = uint32;
 
-class Client final {
+class Client final : public base::has_weak_ptr {
 public:
 	using LibRequest = tonlib_api::object_ptr<tonlib_api::Function>;
 	using LibResponse = tonlib_api::object_ptr<tonlib_api::Object>;
@@ -25,21 +28,33 @@ public:
 	Client();
 	~Client();
 
-	RequestId send(LibRequest request, FnMut<void(LibResponse)> handler);
+	RequestId send(
+		Fn<LibRequest()> request,
+		FnMut<bool(LibResponse)> handler);
 	void cancel(RequestId requestId);
 
 	static LibResponse Execute(LibRequest request);
 
 private:
 	void check();
+	void scheduleResendOnError(RequestId requestId);
+	void resend(RequestId requestId);
 
 	tonlib::Client _wrapped;
 	std::atomic<RequestId> _requestIdAutoIncrement = 0;
+	std::atomic<uint32> _libRequestIdAutoIncrement = 0;
+
 	QMutex _mutex;
-	base::flat_map<RequestId, FnMut<void(LibResponse)>> _handlers;
+	base::flat_map<uint32, RequestId> _requestIdByLibRequestId;
+	base::flat_map<RequestId, Fn<LibRequest()>> _requests;
+	base::flat_map<RequestId, FnMut<bool(LibResponse)>> _handlers;
 
 	std::thread _thread;
 	std::atomic<bool> _finished = false;
+
+	// Accessed from main thread only.
+	base::flat_map<RequestId, crl::time> _requestResendDelays;
+	base::DelayedCallTimer _resendTimer;
 
 };
 

@@ -38,14 +38,14 @@ class RequestSender final : public base::has_weak_ptr {
 		void setFailHandler(FnMut<void(const TLError&)> &&handler) noexcept;
 		void setFailHandler(FnMut<void()> &&handler) noexcept;
 		void setDoneHandler(FnMut<void(LibResponse)> &&handler) noexcept;
-		void setFailHandler(FnMut<void(LibError)> &&handler) noexcept;
-		RequestId send(LibRequest request) noexcept;
+		void setFailHandler(FnMut<bool(LibError)> &&handler) noexcept;
+		RequestId send(Fn<LibRequest()> request) noexcept;
 		base::weak_ptr<RequestSender> on_main_guard() const;
 
 	private:
 		const not_null<RequestSender*> _sender;
 		FnMut<void(LibResponse)> _done;
-		FnMut<void(LibError)> _fail;
+		FnMut<bool(LibError)> _fail;
 
 	};
 
@@ -130,7 +130,9 @@ public:
 		}
 
 		RequestId send() {
-			return RequestBuilder::send(tl_to(_request));
+			return RequestBuilder::send([copy = std::move(_request)] {
+				return tl_to(copy);
+			});
 		}
 
 	private:

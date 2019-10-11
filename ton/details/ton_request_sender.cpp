@@ -7,6 +7,14 @@
 #include "ton/details/ton_request_sender.h"
 
 namespace Ton::details {
+namespace {
+
+[[nodiscard]] bool IsAutoResendError(
+		const tonlib_api::object_ptr<tonlib_api::error> &error) {
+	return (error->message_.find("LITE_SERVER_NETWORK") == 0);
+}
+
+} // namespace
 
 Error ErrorFromLib(const TLerror &error) {
 	const auto message = error.match([&](const TLDerror &data) {
@@ -36,12 +44,16 @@ void RequestSender::RequestBuilder::setFailOnMainHandler(
 		callback = std::move(handler),
 		guard = on_main_guard()
 	](LibError error) mutable {
+		if (IsAutoResendError(error)) {
+			return false;
+		}
 		crl::on_main(guard, [
 			callback = std::move(callback),
 			error = tl_from(std::move(error))
 		]() mutable {
 			callback(error);
 		});
+		return true;
 	});
 }
 
@@ -51,7 +63,11 @@ void RequestSender::RequestBuilder::setFailOnMainHandler(
 		callback = std::move(handler),
 		guard = on_main_guard()
 	](LibError error) mutable {
+		if (IsAutoResendError(error)) {
+			return false;
+		}
 		crl::on_main(guard, std::move(callback));
+		return true;
 	});
 }
 
@@ -66,14 +82,22 @@ void RequestSender::RequestBuilder::setFailHandler(
 		FnMut<void(const TLError&)> &&handler) noexcept {
 	setFailHandler([callback = std::move(handler)](
 			LibError error) mutable {
+		if (IsAutoResendError(error)) {
+			return false;
+		}
 		callback(tl_from(std::move(error)));
+		return true;
 	});
 }
 
 void RequestSender::RequestBuilder::setFailHandler(
 		FnMut<void()> &&handler) noexcept {
 	setFailHandler([callback = std::move(handler)](LibError error) mutable {
+		if (IsAutoResendError(error)) {
+			return false;
+		}
 		callback();
+		return true;
 	});
 }
 
@@ -83,23 +107,25 @@ void RequestSender::RequestBuilder::setDoneHandler(
 }
 
 void RequestSender::RequestBuilder::setFailHandler(
-		FnMut<void(LibError)> &&handler) noexcept {
+		FnMut<bool(LibError)> &&handler) noexcept {
 	_fail = std::move(handler);
 }
 
-RequestId RequestSender::RequestBuilder::send(LibRequest request) noexcept {
+RequestId RequestSender::RequestBuilder::send(
+		Fn<LibRequest()> request) noexcept {
 	auto ready = [done = std::move(_done), fail = std::move(_fail)](
 			LibResponse response) mutable {
 		Expects(response != nullptr);
 
 		if (response->get_id() == tonlib_api::error::ID) {
 			if (fail) {
-				fail(tonlib_api::move_object_as<tonlib_api::error>(
+				return fail(tonlib_api::move_object_as<tonlib_api::error>(
 					std::move(response)));
 			}
 		} else if (done) {
 			done(std::move(response));
 		}
+		return true;
 	};
 	return _sender->_client.send(
 		std::move(request),
