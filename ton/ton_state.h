@@ -82,4 +82,10 @@ struct WalletState {
 [[nodiscard]] bool operator==(const WalletState &a, const WalletState &b);
 [[nodiscard]] bool operator!=(const WalletState &a, const WalletState &b);
 
+struct WalletViewerState {
+	WalletState wallet;
+	crl::time lastRefresh = 0;
+	bool refreshing = false;
+};
+
 } // namespace Ton

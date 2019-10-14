@@ -37,9 +37,10 @@ public:
 private:
 	struct Viewers {
 		rpl::variable<WalletState> state;
-		crl::time lastRefresh = 0;
+		rpl::variable<crl::time> lastRefresh = 0;
+		rpl::variable<bool> refreshing = false;
 		crl::time nextRefresh = 0;
-		bool refreshing = false;
+		Callback<> refreshed;
 		std::vector<not_null<AccountViewer*>> list;
 		rpl::lifetime lifetime;
 	};
@@ -52,6 +53,7 @@ private:
 	void refreshAccount(const QString &address, Viewers &viewers);
 	void checkNextRefresh();
 	Viewers *findRefreshingViewers(const QString &address);
+	void finishRefreshing(Viewers &viewers, Result<> result = {});
 	template <typename Data>
 	bool reportError(Viewers &viewers, Result<Data> result);
 	void saveNewState(

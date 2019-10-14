@@ -6,26 +6,28 @@
 //
 #pragma once
 
+#include "ton/ton_result.h"
+
 namespace Ton {
 
-struct WalletState;
+struct WalletViewerState;
 
 class AccountViewer final {
 public:
-	explicit AccountViewer(rpl::producer<WalletState> state);
+	explicit AccountViewer(rpl::producer<WalletViewerState> state);
 
-	[[nodiscard]] rpl::producer<WalletState> state() const;
+	[[nodiscard]] rpl::producer<WalletViewerState> state() const;
 
-	void refreshNow();
-	[[nodiscard]] rpl::producer<> refreshNowRequests() const;
+	void refreshNow(Callback<>);
+	[[nodiscard]] rpl::producer<Callback<>> refreshNowRequests() const;
 	void setRefreshEach(crl::time delay);
 	[[nodiscard]] crl::time refreshEach() const;
 	[[nodiscard]] rpl::producer<crl::time> refreshEachValue() const;
 
 private:
-	rpl::producer<WalletState> _state;
+	rpl::producer<WalletViewerState> _state;
 	rpl::variable<crl::time> _refreshEach;
-	rpl::event_stream<> _refreshNowRequests;
+	rpl::event_stream<Callback<>> _refreshNowRequests;
 
 };
 

@@ -15,20 +15,20 @@ constexpr auto kDefaultRefreshEach = 60 * crl::time(1000);
 
 } // namespace
 
-AccountViewer::AccountViewer(rpl::producer<WalletState> state)
+AccountViewer::AccountViewer(rpl::producer<WalletViewerState> state)
 : _state(std::move(state))
 , _refreshEach(kDefaultRefreshEach) {
 }
 
-rpl::producer<WalletState> AccountViewer::state() const {
+rpl::producer<WalletViewerState> AccountViewer::state() const {
 	return rpl::duplicate(_state);
 }
 
-void AccountViewer::refreshNow() {
-	_refreshNowRequests.fire({});
+void AccountViewer::refreshNow(Callback<> done) {
+	_refreshNowRequests.fire(std::move(done));
 }
 
-rpl::producer<> AccountViewer::refreshNowRequests() const {
+rpl::producer<Callback<>> AccountViewer::refreshNowRequests() const {
 	return _refreshNowRequests.events();
 }
 
