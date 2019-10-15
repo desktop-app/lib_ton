@@ -98,6 +98,12 @@ void AccountViewers::refreshAccount(
 			return;
 		}
 		const auto &state = *result;
+		setSyncTime(*viewers, state.syncTime);
+		if (state == viewers->state.current().account) {
+			finishRefreshing(*viewers);
+			checkNextRefresh();
+			return;
+		}
 		auto received = [=](Result<TransactionsSlice> result) {
 			const auto viewers = findRefreshingViewers(address);
 			if (!viewers || reportError(*viewers, result)) {
@@ -111,9 +117,14 @@ void AccountViewers::refreshAccount(
 		};
 		_owner->requestTransactions(
 			address,
-			result->lastTransactionId,
+			state.lastTransactionId,
 			received);
 	});
+}
+
+void AccountViewers::setSyncTime(Viewers &viewers, int64 syncTime) {
+	viewers.syncTime = syncTime;
+	// #TODO mark pending transactions as failed by sync time.
 }
 
 void AccountViewers::checkNextRefresh() {
@@ -173,13 +184,17 @@ std::unique_ptr<AccountViewer> AccountViewers::createAccountViewer(
 	).first;
 
 	auto &viewers = i->second;
-	auto result = std::make_unique<AccountViewer>(rpl::combine(
+	auto state = rpl::combine(
 		viewers.state.value(),
 		viewers.lastRefresh.value(),
 		viewers.refreshing.value()
 	) | rpl::map([](WalletState &&state, crl::time last, bool refreshing) {
 		return WalletViewerState{ std::move(state), last, refreshing };
-	}));
+	});
+	auto result = std::make_unique<AccountViewer>(
+		_owner,
+		address,
+		std::move(state));
 	const auto raw = result.get();
 	viewers.list.push_back(raw);
 

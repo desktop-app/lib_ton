@@ -16,6 +16,12 @@ struct TransactionId {
 [[nodiscard]] bool operator==(
 	const TransactionId &a,
 	const TransactionId &b);
+[[nodiscard]] bool operator!=(
+	const TransactionId &a,
+	const TransactionId &b);
+[[nodiscard]] bool operator<(
+	const TransactionId &a,
+	const TransactionId &b);
 
 struct AccountState {
 	int64 balance = 0;
@@ -24,6 +30,7 @@ struct AccountState {
 };
 
 [[nodiscard]] bool operator==(const AccountState &a, const AccountState &b);
+[[nodiscard]] bool operator!=(const AccountState &a, const AccountState &b);
 
 struct Message {
 	QString source;
@@ -45,6 +52,7 @@ struct Transaction {
 };
 
 [[nodiscard]] bool operator==(const Transaction &a, const Transaction &b);
+[[nodiscard]] bool operator!=(const Transaction &a, const Transaction &b);
 
 struct TransactionsSlice {
 	std::vector<Transaction> list;
@@ -52,6 +60,9 @@ struct TransactionsSlice {
 };
 
 [[nodiscard]] bool operator==(
+	const TransactionsSlice &a,
+	const TransactionsSlice &b);
+[[nodiscard]] bool operator!=(
 	const TransactionsSlice &a,
 	const TransactionsSlice &b);
 
@@ -71,6 +82,9 @@ struct PendingTransaction {
 [[nodiscard]] bool operator==(
 	const PendingTransaction &a,
 	const PendingTransaction &b);
+[[nodiscard]] bool operator!=(
+	const PendingTransaction &a,
+	const PendingTransaction &b);
 
 struct WalletState {
 	QString address;
@@ -86,6 +100,11 @@ struct WalletViewerState {
 	WalletState wallet;
 	crl::time lastRefresh = 0;
 	bool refreshing = false;
+};
+
+struct LoadedSlice {
+	TransactionId after;
+	TransactionsSlice data;
 };
 
 } // namespace Ton

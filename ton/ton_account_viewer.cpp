@@ -7,6 +7,7 @@
 #include "ton/ton_account_viewer.h"
 
 #include "ton/ton_state.h"
+#include "ton/ton_wallet.h"
 
 namespace Ton {
 namespace {
@@ -15,13 +16,22 @@ constexpr auto kDefaultRefreshEach = 60 * crl::time(1000);
 
 } // namespace
 
-AccountViewer::AccountViewer(rpl::producer<WalletViewerState> state)
-: _state(std::move(state))
+AccountViewer::AccountViewer(
+	not_null<Wallet*> wallet,
+	const QString &address,
+	rpl::producer<WalletViewerState> state)
+: _wallet(wallet)
+, _address(address)
+, _state(std::move(state))
 , _refreshEach(kDefaultRefreshEach) {
 }
 
 rpl::producer<WalletViewerState> AccountViewer::state() const {
 	return rpl::duplicate(_state);
+}
+
+rpl::producer<LoadedSlice> AccountViewer::loaded() const {
+	return _loadedResults.events();
 }
 
 void AccountViewer::refreshNow(Callback<> done) {
@@ -42,6 +52,21 @@ crl::time AccountViewer::refreshEach() const {
 
 rpl::producer<crl::time> AccountViewer::refreshEachValue() const {
 	return _refreshEach.value();
+}
+
+void AccountViewer::preloadSlice(const TransactionId &lastId) {
+	if (_preloadIds.contains(lastId)) {
+		return;
+	}
+	_preloadIds.emplace(lastId);
+	const auto done = [=](Result<TransactionsSlice> result) {
+		if (!result) {
+			return; // ?? #TODO
+		}
+		_preloadIds.remove(lastId);
+		_loadedResults.fire({ lastId, std::move(*result) });
+	};
+	_wallet->requestTransactions(_address, lastId, crl::guard(this, done));
 }
 
 } // namespace Ton

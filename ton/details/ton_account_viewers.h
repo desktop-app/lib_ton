@@ -34,9 +34,11 @@ public:
 
 	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
 		const QString &address);
+
 private:
 	struct Viewers {
 		rpl::variable<WalletState> state;
+		int64 syncTime = 0;
 		rpl::variable<crl::time> lastRefresh = 0;
 		rpl::variable<bool> refreshing = false;
 		crl::time nextRefresh = 0;
@@ -60,6 +62,7 @@ private:
 		Viewers &viewers,
 		WalletState &&state,
 		RefreshSource source);
+	void setSyncTime(Viewers &viewers, int64 syncTime);
 
 	const not_null<Wallet*> _owner;
 	const not_null<RequestSender*> _lib;
