@@ -22,6 +22,7 @@
       'ton_libs': [
         '-ltonlib',
         '-ltl_tonlib_api',
+        '-lsmc-envelope',
         '-llite-client-common',
         '-lton_block',
         '-ladnllite',

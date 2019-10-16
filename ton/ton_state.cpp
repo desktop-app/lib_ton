@@ -65,4 +65,8 @@ bool operator!=(const WalletState &a, const WalletState &b) {
 	return !(a == b);
 }
 
+int64 TransactionFees::sum() const {
+	return inForward + forward + storage + gas;
+}
+
 } // namespace Ton

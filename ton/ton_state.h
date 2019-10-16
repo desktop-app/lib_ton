@@ -74,6 +74,20 @@ struct TransactionToSend {
 	QString comment;
 };
 
+struct TransactionFees {
+	int64 inForward = 0;
+	int64 storage = 0;
+	int64 gas = 0;
+	int64 forward = 0;
+
+	[[nodiscard]] int64 sum() const;
+};
+
+struct TransactionCheckResult {
+	TransactionFees sourceFees;
+	TransactionFees destinationFees;
+};
+
 struct PendingTransaction {
 	Transaction fake;
 	int64 sentUntilSyncTime = 0;

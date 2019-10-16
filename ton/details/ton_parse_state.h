@@ -20,5 +20,10 @@ namespace Ton::details {
 	const TLSendGramsResult &data,
 	const QString &sender,
 	const TransactionToSend &transaction);
+[[nodiscard]] PendingTransaction Parse(
+	const TLquery_Info &data,
+	const QString &sender,
+	const TransactionToSend &transaction);
+[[nodiscard]] TransactionCheckResult Parse(const TLquery_Fees &data);
 
 } // namespace Ton::details

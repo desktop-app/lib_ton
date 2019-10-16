@@ -58,6 +58,12 @@ QString Wallet::GetAddress(const QByteArray &publicKey) {
 	});
 }
 
+bool Wallet::CheckAddress(const QString &address) {
+	return RequestSender::Execute(TLUnpackAccountAddress(
+		tl_string(address)
+	)) ? true : false;
+}
+
 void Wallet::open(
 		const QByteArray &globalPassword,
 		const Config &config,
@@ -224,6 +230,51 @@ void Wallet::changePassword(
 		std::move(changed));
 }
 
+void Wallet::checkSendGrams(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		const TransactionToSend &transaction,
+		Callback<TransactionCheckResult> done) {
+	Expects(transaction.amount > 0);
+
+	const auto sender = GetAddress(publicKey);
+	Assert(!sender.isEmpty());
+
+	const auto index = ranges::find(_publicKeys, publicKey)
+		- begin(_publicKeys);
+	Assert(index < _secrets.size());
+
+	const auto check = [=](int64 id) {
+		_external->lib().request(TLquery_EstimateFees(
+			tl_int53(id)
+		)).done([=](const TLquery_Fees &result) {
+			_external->lib().request(TLquery_Forget(
+				tl_int53(id)
+			)).send();
+			InvokeCallback(done, Parse(result));
+		}).fail([=](const TLError &error) {
+			InvokeCallback(done, ErrorFromLib(error));
+		}).send();
+	};
+	_external->lib().request(TLgeneric_CreateSendGramsQuery(
+		tl_inputKey(
+			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
+			TLsecureBytes{ password }),
+		tl_accountAddress(tl_string(sender)),
+		tl_accountAddress(tl_string(transaction.recipient)),
+		tl_int64(transaction.amount),
+		tl_int32(transaction.timeout),
+		tl_from(transaction.allowSendToUninited),
+		tl_string(transaction.comment)
+	)).done([=](const TLquery_Info &result) {
+		result.match([&](const TLDquery_info &data) {
+			check(data.vid().v);
+		});
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 void Wallet::sendGrams(
 		const QByteArray &publicKey,
 		const QByteArray &password,
@@ -237,6 +288,32 @@ void Wallet::sendGrams(
 	const auto index = ranges::find(_publicKeys, publicKey)
 		- begin(_publicKeys);
 	Assert(index < _secrets.size());
+
+	const auto send = [=](int64 id) {
+		_external->lib().request(TLquery_Send(
+			tl_int53(id)
+		)).send();
+	};
+
+	_external->lib().request(TLgeneric_CreateSendGramsQuery(
+		tl_inputKey(
+			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
+			TLsecureBytes{ password }),
+		tl_accountAddress(tl_string(sender)),
+		tl_accountAddress(tl_string(transaction.recipient)),
+		tl_int64(transaction.amount),
+		tl_int32(transaction.timeout),
+		tl_from(transaction.allowSendToUninited),
+		tl_string(transaction.comment)
+	)).done([=](const TLquery_Info &result) {
+		result.match([&](const TLDquery_info &data) {
+			send(data.vid().v);
+			InvokeCallback(done, Parse(result, sender, transaction));
+		});
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+
 
 	_external->lib().request(TLgeneric_SendGrams(
 		tl_inputKey(

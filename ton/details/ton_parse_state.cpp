@@ -9,6 +9,27 @@
 #include <QtCore/QDateTime>
 
 namespace Ton::details {
+namespace {
+
+[[nodiscard]] PendingTransaction PreparePending(
+		const QString &sender,
+		const TransactionToSend &transaction,
+		int64 sentUntilSyncTime,
+		const QByteArray &bodyHash) {
+	auto result = PendingTransaction();
+	result.sentUntilSyncTime = sentUntilSyncTime;
+	result.fake.time = QDateTime::currentDateTime().toTime_t();
+	result.fake.incoming.bodyHash = bodyHash;
+	result.fake.incoming.destination = sender;
+	auto &outgoing = result.fake.outgoing.emplace_back();
+	outgoing.source = sender;
+	outgoing.destination = transaction.recipient;
+	outgoing.message = transaction.comment.toUtf8();
+	outgoing.value = transaction.amount;
+	return result;
+}
+
+} // namespace
 
 TransactionId Parse(const TLinternal_TransactionId &data) {
 	return data.match([&](const TLDinternal_transactionId &data) {
@@ -87,19 +108,46 @@ PendingTransaction Parse(
 		const TLSendGramsResult &data,
 		const QString &sender,
 		const TransactionToSend &transaction) {
-	auto result = PendingTransaction();
-	result.fake.time = QDateTime::currentDateTime().toTime_t();
-	data.match([&](const TLDsendGramsResult &data) {
-		result.sentUntilSyncTime = data.vsent_until().v;
-		result.fake.incoming.bodyHash = data.vbody_hash().v;
+	return data.match([&](const TLDsendGramsResult &data) {
+		return PreparePending(
+			sender,
+			transaction,
+			data.vsent_until().v,
+			data.vbody_hash().v);
 	});
-	result.fake.incoming.destination = sender;
-	auto &outgoing = result.fake.outgoing.emplace_back();
-	outgoing.source = sender;
-	outgoing.destination = transaction.recipient;
-	outgoing.message = transaction.comment.toUtf8();
-	outgoing.value = transaction.amount;
-	return result;
+}
+
+PendingTransaction Parse(
+		const TLquery_Info &data,
+		const QString &sender,
+		const TransactionToSend &transaction) {
+	return data.match([&](const TLDquery_info &data) {
+		return PreparePending(
+			sender,
+			transaction,
+			data.vvalid_until().v,
+			data.vbody_hash().v);
+	});
+}
+
+TransactionFees Parse(const TLFees &data) {
+	return data.match([&](const TLDfees &data) {
+		auto result = TransactionFees();
+		result.inForward = data.vin_fwd_fee().v;
+		result.gas = data.vgas_fee().v;
+		result.storage = data.vstorage_fee().v;
+		result.forward = data.vfwd_fee().v;
+		return result;
+	});
+}
+
+TransactionCheckResult Parse(const TLquery_Fees &data) {
+	return data.match([&](const TLDquery_fees &data) {
+		auto result = TransactionCheckResult();
+		result.sourceFees = Parse(data.vsource_fees());
+		result.destinationFees = Parse(data.vdestination_fees());
+		return result;
+	});
 }
 
 } // namespace Ton::details

@@ -51,6 +51,11 @@ public:
 		const QByteArray &newPassword,
 		Callback<> done);
 
+	void checkSendGrams(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		const TransactionToSend &transaction,
+		Callback<TransactionCheckResult> done);
 	void sendGrams(
 		const QByteArray &publicKey,
 		const QByteArray &password,
@@ -58,6 +63,7 @@ public:
 		Callback<PendingTransaction> done);
 
 	[[nodiscard]] static QString GetAddress(const QByteArray &publicKey);
+	[[nodiscard]] static bool CheckAddress(const QString &address);
 
 	void requestState(const QString &address, Callback<AccountState> done);
 	void requestTransactions(
