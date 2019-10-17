@@ -34,7 +34,7 @@ namespace {
 TransactionId Parse(const TLinternal_TransactionId &data) {
 	return data.match([&](const TLDinternal_transactionId &data) {
 		auto result = TransactionId();
-		result.id = data.vlt().v;
+		result.lt = data.vlt().v;
 		result.hash = data.vhash().v;
 		return result;
 	});

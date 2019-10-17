@@ -61,7 +61,7 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 	_preloadIds.emplace(lastId);
 	const auto done = [=](Result<TransactionsSlice> result) {
 		if (!result) {
-			return; // ?? #TODO
+			return; // #TODO fatal?..
 		}
 		_preloadIds.remove(lastId);
 		_loadedResults.fire({ lastId, std::move(*result) });

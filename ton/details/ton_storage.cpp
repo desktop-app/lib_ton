@@ -101,14 +101,14 @@ WalletList Deserialize(const TLstorage_WalletList &data) {
 
 TLstorage_TransactionId Serialize(const TransactionId &data) {
 	return make_storage_transactionId(
-		tl_int64(data.id),
+		tl_int64(data.lt),
 		tl_bytes(data.hash));
 }
 
 TransactionId Deserialize(const TLstorage_TransactionId &data) {
 	return data.match([&](const TLDstorage_transactionId &data) {
 		return TransactionId{
-			data.vid().v,
+			data.vlt().v,
 			data.vhash().v
 		};
 	});

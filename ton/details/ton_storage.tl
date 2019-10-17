@@ -1,6 +1,6 @@
 storage.walletEntry publicKey:string secret:bytes = storage.WalletEntry;
 storage.walletList entries:vector<storage.WalletEntry> = storage.WalletList;
-storage.transactionId id:int64 hash:bytes = storage.TransactionId;
+storage.transactionId lt:int64 hash:bytes = storage.TransactionId;
 storage.accountState balance:int64 syncTime:int64 lastTransactionId:storage.TransactionId = storage.AccountState;
 storage.message source:string destination:string value:int64 created:int64 bodyHash:bytes message:string = storage.Message;
 storage.transaction id:storage.TransactionId time:int64 fee:int64 storageFee:int64 otherFee:int64 incoming:storage.Message outgoing:vector<storage.Message> = storage.Transaction;

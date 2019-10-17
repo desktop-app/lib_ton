@@ -358,7 +358,7 @@ void Wallet::requestTransactions(
 		Callback<TransactionsSlice> done) {
 	_external->lib().request(TLraw_GetTransactions(
 		tl_accountAddress(tl_string(address)),
-		tl_internal_transactionId(tl_int64(lastId.id), tl_bytes(lastId.hash))
+		tl_internal_transactionId(tl_int64(lastId.lt), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {

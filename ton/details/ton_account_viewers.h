@@ -40,7 +40,6 @@ public:
 private:
 	struct Viewers {
 		rpl::variable<WalletState> state;
-		int64 syncTime = 0;
 		rpl::variable<crl::time> lastRefresh = 0;
 		rpl::variable<bool> refreshing = false;
 		crl::time nextRefresh = 0;
@@ -56,6 +55,10 @@ private:
 
 	void refreshFromDatabase(const QString &address, Viewers &viewers);
 	void refreshAccount(const QString &address, Viewers &viewers);
+	void checkPendingForSameState(
+		const QString &address,
+		Viewers &viewers,
+		const AccountState &state);
 	void checkNextRefresh();
 	Viewers *findRefreshingViewers(const QString &address);
 	void finishRefreshing(Viewers &viewers, Result<> result = {});
@@ -65,7 +68,6 @@ private:
 		Viewers &viewers,
 		WalletState &&state,
 		RefreshSource source);
-	void setSyncTime(Viewers &viewers, int64 syncTime);
 
 	const not_null<Wallet*> _owner;
 	const not_null<RequestSender*> _lib;

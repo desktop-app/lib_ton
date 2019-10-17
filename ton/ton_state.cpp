@@ -9,11 +9,11 @@
 namespace Ton {
 
 bool operator<(const TransactionId &a, const TransactionId &b) {
-	return (a.id < b.id);
+	return (a.lt < b.lt);
 }
 
 bool operator==(const TransactionId &a, const TransactionId &b) {
-	return (a.id == b.id);
+	return (a.lt == b.lt);
 }
 
 bool operator!=(const TransactionId &a, const TransactionId &b) {
@@ -32,7 +32,7 @@ bool operator!=(const AccountState &a, const AccountState &b) {
 bool operator==(const Transaction &a, const Transaction &b) {
 	return (a.id == b.id)
 		|| ((a.incoming.bodyHash == b.incoming.bodyHash)
-			&& (!a.id.id || !b.id.id));
+			&& (!a.id.lt || !b.id.lt));
 }
 
 bool operator!=(const Transaction &a, const Transaction &b) {

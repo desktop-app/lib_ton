@@ -9,7 +9,7 @@
 namespace Ton {
 
 struct TransactionId {
-	int64 id = 0;
+	int64 lt = 0;
 	QByteArray hash;
 };
 

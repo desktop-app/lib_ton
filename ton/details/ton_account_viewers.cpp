@@ -105,6 +105,28 @@ void AccountViewers::saveNewState(
 	}
 }
 
+void AccountViewers::checkPendingForSameState(
+		const QString &address,
+		Viewers &viewers,
+		const AccountState &state) {
+	auto pending = ComputePendingTransactions(
+		viewers.state.current().pendingTransactions,
+		state,
+		TransactionsSlice());
+	if (viewers.state.current().pendingTransactions != pending) {
+		// Some pending transactions were discarded by the sync time.
+		saveNewState(viewers, WalletState{
+			address,
+			state,
+			viewers.state.current().lastTransactions,
+			std::move(pending)
+		}, RefreshSource::Remote);
+	} else {
+		finishRefreshing(viewers);
+		checkNextRefresh();
+	}
+}
+
 void AccountViewers::refreshAccount(
 		const QString &address,
 		Viewers &viewers) {
@@ -115,13 +137,11 @@ void AccountViewers::refreshAccount(
 			return;
 		}
 		const auto &state = *result;
-		setSyncTime(*viewers, state.syncTime);
 		if (state == viewers->state.current().account) {
-			finishRefreshing(*viewers);
-			checkNextRefresh();
+			checkPendingForSameState(address, *viewers, state);
 			return;
 		}
-		auto received = [=](Result<TransactionsSlice> result) {
+		const auto received = [=](Result<TransactionsSlice> result) {
 			const auto viewers = findRefreshingViewers(address);
 			if (!viewers || reportError(*viewers, result)) {
 				return;
@@ -142,11 +162,6 @@ void AccountViewers::refreshAccount(
 			state.lastTransactionId,
 			received);
 	});
-}
-
-void AccountViewers::setSyncTime(Viewers &viewers, int64 syncTime) {
-	viewers.syncTime = syncTime;
-	// #TODO mark pending transactions as failed by sync time.
 }
 
 void AccountViewers::checkNextRefresh() {
