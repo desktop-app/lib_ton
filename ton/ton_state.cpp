@@ -30,7 +30,9 @@ bool operator!=(const AccountState &a, const AccountState &b) {
 }
 
 bool operator==(const Transaction &a, const Transaction &b) {
-	return (a.id == b.id) && (a.incoming.bodyHash == b.incoming.bodyHash);
+	return (a.id == b.id)
+		|| ((a.incoming.bodyHash == b.incoming.bodyHash)
+			&& (!a.id.id || !b.id.id));
 }
 
 bool operator!=(const Transaction &a, const Transaction &b) {

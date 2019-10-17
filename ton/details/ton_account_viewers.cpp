@@ -13,6 +13,23 @@
 #include "storage/cache/storage_cache_database.h"
 
 namespace Ton::details {
+namespace {
+
+constexpr auto kRefreshWithPendingTimeout = 6 * crl::time(1000);
+
+std::vector<PendingTransaction> ComputePendingTransactions(
+		std::vector<PendingTransaction> list,
+		const AccountState &state,
+		const TransactionsSlice &last) {
+	const auto processed = [&](const PendingTransaction &transaction) {
+		return (transaction.sentUntilSyncTime < state.syncTime)
+			|| (ranges::find(last.list, transaction.fake) != end(last.list));
+	};
+	list.erase(ranges::remove_if(list, processed), end(list));
+	return list;
+}
+
+} // namespace
 
 AccountViewers::AccountViewers(
 	not_null<Wallet*> owner,
@@ -66,12 +83,12 @@ void AccountViewers::saveNewState(
 		WalletState &&state,
 		RefreshSource source) {
 	const auto weak = base::make_weak(this);
-	finishRefreshing(viewers);
+	if (source != RefreshSource::Pending) {
+		finishRefreshing(viewers);
+	}
 	if (!weak) {
 		return;
 	}
-	viewers.refreshing = false;
-	viewers.lastRefresh = crl::now();
 	if (viewers.state.current() != state) {
 		if (source != RefreshSource::Database) {
 			SaveWalletState(_db, state, nullptr);
@@ -109,10 +126,15 @@ void AccountViewers::refreshAccount(
 			if (!viewers || reportError(*viewers, result)) {
 				return;
 			}
+			auto pending = ComputePendingTransactions(
+				viewers->state.current().pendingTransactions,
+				state,
+				*result);
 			saveNewState(*viewers, WalletState{
 				address,
 				state,
-				std::move(*result)
+				std::move(*result),
+				std::move(pending)
 			}, RefreshSource::Remote);
 		};
 		_owner->requestTransactions(
@@ -137,14 +159,16 @@ void AccountViewers::checkNextRefresh() {
 		}
 		Assert(viewers.lastRefresh.current() > 0);
 		Assert(!viewers.list.empty());
-		const auto j = ranges::min_element(
+		const auto min = (*ranges::min_element(
 			viewers.list,
 			ranges::less(),
-			&AccountViewer::refreshEach);
-		const auto min = (*j)->refreshEach();
+			&AccountViewer::refreshEach))->refreshEach();
+		const auto use = viewers.state.current().pendingTransactions.empty()
+			? min
+			: std::min(min, kRefreshWithPendingTimeout);
 		const auto next
 			= viewers.nextRefresh
-			= viewers.lastRefresh.current() + min;
+			= viewers.lastRefresh.current() + use;
 		const auto in = next - now;
 		if (in <= 0) {
 			refreshAccount(address, viewers);
@@ -231,6 +255,19 @@ std::unique_ptr<AccountViewer> AccountViewers::createAccountViewer(
 	}, viewers.lifetime);
 
 	return result;
+}
+
+void AccountViewers::addPendingTransaction(
+		const PendingTransaction &pending) {
+	const auto address = pending.fake.incoming.destination;
+	const auto i = _map.find(address);
+	if (i != end(_map)) {
+		auto state = i->second.state.current();
+		state.pendingTransactions.insert(
+			begin(state.pendingTransactions),
+			pending);
+		saveNewState(i->second, std::move(state), RefreshSource::Pending);
+	}
 }
 
 } // namespace Ton::details

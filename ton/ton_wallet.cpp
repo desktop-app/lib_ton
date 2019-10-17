@@ -279,7 +279,8 @@ void Wallet::sendGrams(
 		const QByteArray &publicKey,
 		const QByteArray &password,
 		const TransactionToSend &transaction,
-		Callback<PendingTransaction> done) {
+		Callback<PendingTransaction> ready,
+		Callback<> done) {
 	Expects(transaction.amount > 0);
 
 	const auto sender = GetAddress(publicKey);
@@ -292,7 +293,11 @@ void Wallet::sendGrams(
 	const auto send = [=](int64 id) {
 		_external->lib().request(TLquery_Send(
 			tl_int53(id)
-		)).send();
+		)).done([=] {
+			InvokeCallback(done);
+		}).fail([=](const TLError &error) {
+			InvokeCallback(done, ErrorFromLib(error));
+		}).send();
 	};
 
 	_external->lib().request(TLgeneric_CreateSendGramsQuery(
@@ -307,28 +312,20 @@ void Wallet::sendGrams(
 		tl_string(transaction.comment)
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
+			const auto weak = base::make_weak(this);
+			auto pending = Parse(result, sender, transaction);
+			_accountViewers->addPendingTransaction(pending);
+			if (!weak) {
+				return;
+			}
+			InvokeCallback(ready, std::move(pending));
+			if (!weak) {
+				return;
+			}
 			send(data.vid().v);
-			InvokeCallback(done, Parse(result, sender, transaction));
 		});
 	}).fail([=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
-	}).send();
-
-
-	_external->lib().request(TLgeneric_SendGrams(
-		tl_inputKey(
-			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
-			TLsecureBytes{ password }),
-		tl_accountAddress(tl_string(sender)),
-		tl_accountAddress(tl_string(transaction.recipient)),
-		tl_int64(transaction.amount),
-		tl_int32(transaction.timeout),
-		tl_from(transaction.allowSendToUninited),
-		tl_string(transaction.comment)
-	)).done([=](const TLSendGramsResult &result) {
-		InvokeCallback(done, Parse(result, sender, transaction));
-	}).fail([=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
+		InvokeCallback(ready, ErrorFromLib(error));
 	}).send();
 }
 

@@ -60,7 +60,8 @@ public:
 		const QByteArray &publicKey,
 		const QByteArray &password,
 		const TransactionToSend &transaction,
-		Callback<PendingTransaction> done);
+		Callback<PendingTransaction> ready,
+		Callback<> done);
 
 	[[nodiscard]] static QString GetAddress(const QByteArray &publicKey);
 	[[nodiscard]] static bool CheckAddress(const QString &address);

@@ -18,6 +18,7 @@ class Database;
 namespace Ton {
 class Wallet;
 class AccountViewer;
+struct PendingTransaction;
 } // namespace Ton
 
 namespace Ton::details {
@@ -34,6 +35,7 @@ public:
 
 	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
 		const QString &address);
+	void addPendingTransaction(const PendingTransaction &pending);
 
 private:
 	struct Viewers {
@@ -49,6 +51,7 @@ private:
 	enum class RefreshSource {
 		Database,
 		Remote,
+		Pending,
 	};
 
 	void refreshFromDatabase(const QString &address, Viewers &viewers);
