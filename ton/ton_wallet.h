@@ -53,7 +53,6 @@ public:
 
 	void checkSendGrams(
 		const QByteArray &publicKey,
-		const QByteArray &password,
 		const TransactionToSend &transaction,
 		Callback<TransactionCheckResult> done);
 	void sendGrams(

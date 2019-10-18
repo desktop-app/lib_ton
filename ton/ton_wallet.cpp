@@ -247,7 +247,6 @@ void Wallet::changePassword(
 
 void Wallet::checkSendGrams(
 		const QByteArray &publicKey,
-		const QByteArray &password,
 		const TransactionToSend &transaction,
 		Callback<TransactionCheckResult> done) {
 	Expects(transaction.amount > 0);
@@ -261,7 +260,8 @@ void Wallet::checkSendGrams(
 
 	const auto check = [=](int64 id) {
 		_external->lib().request(TLquery_EstimateFees(
-			tl_int53(id)
+			tl_int53(id),
+			tl_boolTrue()
 		)).done([=](const TLquery_Fees &result) {
 			_external->lib().request(TLquery_Forget(
 				tl_int53(id)
@@ -272,9 +272,7 @@ void Wallet::checkSendGrams(
 		}).send();
 	};
 	_external->lib().request(TLgeneric_CreateSendGramsQuery(
-		tl_inputKey(
-			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
-			TLsecureBytes{ password }),
+		tl_inputKeyFake(),
 		tl_accountAddress(tl_string(sender)),
 		tl_accountAddress(tl_string(transaction.recipient)),
 		tl_int64(transaction.amount),
