@@ -81,21 +81,6 @@ void Start(Callback<> done) {
 	}).fail(ErrorHandler(done)).send();
 }
 
-void GetValidWords(Fn<void(std::vector<QByteArray>)> done) {
-	const auto result = RequestSender::Execute(TLGetBip39Hints(
-		tl_string()));
-	Assert(result);
-
-	result->match([&](const TLDbip39Hints &data) {
-		auto list = std::vector<QByteArray>();
-		list.reserve(data.vwords().v.size());
-		for (const auto &word : data.vwords().v) {
-			list.push_back(word.v);
-		}
-		done(std::move(list));
-	});
-}
-
 void CreateKey(
 		const QByteArray &seed,
 		Callback<UtilityKey> done) {

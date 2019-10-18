@@ -21,8 +21,6 @@ struct UtilityKey {
 	std::vector<QByteArray> words;
 };
 
-void GetValidWords(Fn<void(std::vector<QByteArray>)> done);
-
 void Start(Callback<> done);
 void CreateKey(
 	const QByteArray &seed,

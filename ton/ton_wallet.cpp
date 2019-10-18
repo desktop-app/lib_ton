@@ -64,6 +64,21 @@ bool Wallet::CheckAddress(const QString &address) {
 	)) ? true : false;
 }
 
+[[nodiscard]] base::flat_set<QString> Wallet::GetValidWords() {
+	const auto result = RequestSender::Execute(TLGetBip39Hints(
+		tl_string()));
+	Assert(result);
+
+	return result->match([&](const TLDbip39Hints &data) {
+		auto &&words = ranges::view::all(
+			data.vwords().v
+		) | ranges::view::transform([](const TLstring &word) {
+			return QString::fromUtf8(word.v);
+		});
+		return base::flat_set<QString>{ words.begin(), words.end() };
+	});
+}
+
 void Wallet::open(
 		const QByteArray &globalPassword,
 		const Config &config,

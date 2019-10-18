@@ -65,6 +65,7 @@ public:
 
 	[[nodiscard]] static QString GetAddress(const QByteArray &publicKey);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
+	[[nodiscard]] static base::flat_set<QString> GetValidWords();
 
 	void requestState(const QString &address, Callback<AccountState> done);
 	void requestTransactions(
