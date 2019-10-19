@@ -7,6 +7,7 @@
 #include "ton/details/ton_key_creator.h"
 
 #include "ton/details/ton_request_sender.h"
+#include "ton/details/ton_parse_state.h"
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_storage.h"
 
@@ -56,15 +57,8 @@ void KeyCreator::exportWords(
 			tl_key(tl_string(_key), TLsecureBytes{ _secret }),
 			TLsecureBytes{ _password })
 	)).done(crl::guard(this, [=](const TLExportedKey &result) {
-		auto list = result.match([&](const TLDexportedKey &data) {
-			return ranges::view::all(
-				data.vword_list().v
-			) | ranges::view::transform([](const TLsecureString &data) {
-				return tl::utf16(data.v);
-			}) | ranges::to_vector;
-		});
 		_state = State::Created;
-		InvokeCallback(done, std::move(list));
+		InvokeCallback(done, Parse(result));
 	})).fail(crl::guard(this, [=](const TLError &error) {
 		DeletePublicKey(_lib, _key, _secret, crl::guard(this, [=](Result<>) {
 			InvokeCallback(done, ErrorFromLib(error));

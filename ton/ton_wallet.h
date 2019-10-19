@@ -22,6 +22,7 @@ class KeyCreator;
 class KeyDestroyer;
 class PasswordChanger;
 class AccountViewers;
+class TLinputKey;
 } // namespace details
 
 struct Config;
@@ -44,6 +45,10 @@ public:
 	void saveKey(
 		const QByteArray &password,
 		Callback<QByteArray> done);
+	void exportKey(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		Callback<std::vector<QString>> done);
 	void deleteKey(const QByteArray &publicKey, Callback<> done);
 	void deleteAllKeys(Callback<> done);
 	void changePassword(
@@ -78,6 +83,9 @@ public:
 private:
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
+	[[nodiscard]] details::TLinputKey prepareInputKey(
+		const QByteArray &publicKey,
+		const QByteArray &password) const;
 
 	const std::unique_ptr<details::External> _external;
 	const std::unique_ptr<details::AccountViewers> _accountViewers;

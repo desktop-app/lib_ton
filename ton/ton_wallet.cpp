@@ -139,6 +139,19 @@ void Wallet::saveKey(
 		std::move(saved));
 }
 
+void Wallet::exportKey(
+		const QByteArray &publicKey,
+		const QByteArray &password,
+		Callback<std::vector<QString>> done) {
+	_external->lib().request(TLExportKey(
+		prepareInputKey(publicKey, password)
+	)).done([=](const TLExportedKey &result) {
+		InvokeCallback(done, Parse(result));
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 details::WalletList Wallet::collectWalletList() const {
 	Expects(_publicKeys.size() == _secrets.size());
 
@@ -147,6 +160,18 @@ details::WalletList Wallet::collectWalletList() const {
 		result.entries.push_back({ _publicKeys[i], _secrets[i] });
 	}
 	return result;
+}
+
+TLinputKey Wallet::prepareInputKey(
+		const QByteArray &publicKey,
+		const QByteArray &password) const {
+	const auto index = ranges::find(_publicKeys, publicKey)
+		- begin(_publicKeys);
+	Assert(index < _secrets.size());
+
+	return tl_inputKey(
+		tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
+		TLsecureBytes{ password });
 }
 
 void Wallet::setWalletList(const details::WalletList &list) {
@@ -299,10 +324,6 @@ void Wallet::sendGrams(
 	const auto sender = GetAddress(publicKey);
 	Assert(!sender.isEmpty());
 
-	const auto index = ranges::find(_publicKeys, publicKey)
-		- begin(_publicKeys);
-	Assert(index < _secrets.size());
-
 	const auto send = [=](int64 id) {
 		_external->lib().request(TLquery_Send(
 			tl_int53(id)
@@ -314,9 +335,7 @@ void Wallet::sendGrams(
 	};
 
 	_external->lib().request(TLgeneric_CreateSendGramsQuery(
-		tl_inputKey(
-			tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
-			TLsecureBytes{ password }),
+		prepareInputKey(publicKey, password),
 		tl_accountAddress(tl_string(sender)),
 		tl_accountAddress(tl_string(transaction.recipient)),
 		tl_int64(transaction.amount),

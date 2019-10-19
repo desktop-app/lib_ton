@@ -150,4 +150,14 @@ TransactionCheckResult Parse(const TLquery_Fees &data) {
 	});
 }
 
+std::vector<QString> Parse(const TLExportedKey &data) {
+	return data.match([&](const TLDexportedKey &data) {
+		return ranges::view::all(
+			data.vword_list().v
+		) | ranges::view::transform([](const TLsecureString &data) {
+			return tl::utf16(data.v);
+		}) | ranges::to_vector;
+	});
+}
+
 } // namespace Ton::details
