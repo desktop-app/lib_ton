@@ -71,4 +71,19 @@ int64 TransactionFees::sum() const {
 	return inForward + forward + storage + gas;
 }
 
+bool SyncState::valid() const {
+	return (from <= current) && (current <= to) && (from < to);
+}
+
+bool operator==(const SyncState &a, const SyncState &b) {
+	if (!a.valid()) {
+		return !b.valid();
+	}
+	return (a.from == b.from) && (a.to == b.to) && (a.current == b.current);
+}
+
+bool operator!=(const SyncState &a, const SyncState &b) {
+	return !(a == b);
+}
+
 } // namespace Ton

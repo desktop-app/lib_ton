@@ -18,6 +18,7 @@ class Database;
 
 namespace Ton {
 struct Config;
+struct Update;
 } // namespace Ton
 
 namespace Ton::details {
@@ -27,7 +28,7 @@ struct WalletList;
 
 class External final : public base::has_weak_ptr {
 public:
-	explicit External(const QString &path);
+	External(const QString &path, Fn<void(Update)> &&updateCallback);
 
 	void open(
 		const QByteArray &globalPassword,
@@ -47,12 +48,14 @@ private:
 
 	[[nodiscard]] Result<> loadSalt();
 	[[nodiscard]] Result<> writeNewSalt();
+	[[nodiscard]] Fn<void(const TLUpdate &)> generateUpdateCallback() const;
 	void openDatabase(
 		const QByteArray &globalPassword,
 		Callback<WalletList> done);
 	void startLibrary(const Config &config, Callback<> done);
 
 	const QString _basePath;
+	const Fn<void(Update)> _updateCallback;
 	RequestSender _lib;
 	Storage::DatabasePointer _db;
 

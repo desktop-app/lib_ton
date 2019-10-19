@@ -39,7 +39,9 @@ public:
 		Callback<> done);
 	void setConfig(const Config &config, Callback<> done);
 
-	const std::vector<QByteArray> &publicKeys() const;
+	[[nodiscard]] rpl::producer<Update> updates() const;
+
+	[[nodiscard]] const std::vector<QByteArray> &publicKeys() const;
 
 	void createKey(Callback<std::vector<QString>> done);
 	void importKey(const std::vector<QString> &words, Callback<> done);
@@ -87,6 +89,10 @@ private:
 	[[nodiscard]] details::TLinputKey prepareInputKey(
 		const QByteArray &publicKey,
 		const QByteArray &password) const;
+	[[nodiscard]] Fn<void(Update)> generateUpdatesCallback();
+
+	rpl::event_stream<Update> _updates;
+	SyncState _lastSyncStateUpdate;
 
 	const std::unique_ptr<details::External> _external;
 	const std::unique_ptr<details::AccountViewers> _accountViewers;

@@ -121,4 +121,24 @@ struct LoadedSlice {
 	TransactionsSlice data;
 };
 
+struct SyncState {
+	int from = 0;
+	int to = 0;
+	int current = 0;
+
+	bool valid() const;
+};
+
+[[nodiscard]] bool operator==(const SyncState &a, const SyncState &b);
+[[nodiscard]] bool operator!=(const SyncState &a, const SyncState &b);
+
+struct LiteServerQuery {
+	int64 id = 0;
+	QByteArray bytes;
+};
+
+struct Update {
+	base::variant<SyncState, LiteServerQuery> data;
+};
+
 } // namespace Ton

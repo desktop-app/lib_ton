@@ -34,7 +34,7 @@ using namespace details;
 } // namespace
 
 Wallet::Wallet(const QString &path)
-: _external(std::make_unique<External>(path))
+: _external(std::make_unique<External>(path, generateUpdatesCallback()))
 , _accountViewers(
 	std::make_unique<AccountViewers>(
 		this,
@@ -89,12 +89,17 @@ void Wallet::open(
 			return;
 		}
 		setWalletList(*result);
+		_external->lib().request(TLSync()).send();
 		InvokeCallback(done);
 	});
 }
 
 void Wallet::setConfig(const Config &config, Callback<> done) {
 	_external->setConfig(config, std::move(done));
+}
+
+rpl::producer<Update> Wallet::updates() const {
+	return _updates.events();
 }
 
 const std::vector<QByteArray> &Wallet::publicKeys() const {
@@ -419,6 +424,18 @@ void Wallet::requestTransactions(
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
 		const QString &address) {
 	return _accountViewers->createAccountViewer(address);
+}
+
+Fn<void(Update)> Wallet::generateUpdatesCallback() {
+	return [=](Update update) {
+		if (const auto sync = base::get_if<SyncState>(&update.data)) {
+			if (*sync == _lastSyncStateUpdate) {
+				return;
+			}
+			_lastSyncStateUpdate = *sync;
+		}
+		_updates.fire(std::move(update));
+	};
 }
 
 } // namespace Ton

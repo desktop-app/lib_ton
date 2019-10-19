@@ -14,6 +14,16 @@ namespace {
 	return (error->message_.find("LITE_SERVER_NETWORK") == 0);
 }
 
+[[nodiscard]] Fn<void(Client::LibUpdate)> ConvertUpdateCallback(
+		Fn<void(const TLUpdate &)> &&callback) {
+	if (!callback) {
+		return nullptr;
+	}
+	return [callback = std::move(callback)](Client::LibUpdate update) {
+		callback(tl_from(std::move(update)));
+	};
+}
+
 } // namespace
 
 Error ErrorFromLib(const TLerror &error) {
@@ -135,6 +145,10 @@ RequestId RequestSender::RequestBuilder::send(
 auto RequestSender::RequestBuilder::on_main_guard() const
 -> base::weak_ptr<RequestSender> {
 	return base::make_weak(_sender.get());
+}
+
+RequestSender::RequestSender(Fn<void(const TLUpdate &)> updateCallback)
+: _client(ConvertUpdateCallback(std::move(updateCallback))) {
 }
 
 } // namespace Ton::details

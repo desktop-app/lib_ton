@@ -160,4 +160,24 @@ std::vector<QString> Parse(const TLExportedKey &data) {
 	});
 }
 
+SyncState Parse(const TLSyncState &data) {
+	return data.match([&](const TLDsyncStateDone &data) {
+		return SyncState();
+	}, [&](const TLDsyncStateInProgress &data) {
+		return SyncState{
+			data.vfrom_seqno().v,
+			data.vto_seqno().v,
+			data.vcurrent_seqno().v
+		};
+	});
+}
+
+Update Parse(const TLUpdate &data) {
+	return data.match([&](const TLDupdateSyncState &data) -> Update {
+		return { Parse(data.vsync_state()) };
+	}, [&](const TLDupdateSendLiteServerQuery &data) -> Update {
+		return { LiteServerQuery{ data.vid().v, data.vdata().v } };
+	});
+}
+
 } // namespace Ton::details

@@ -23,7 +23,9 @@ crl::time NextRequestResendDelay(crl::time currentDelay) {
 
 } // namespace
 
-Client::Client() : _thread([=] { check(); }) {
+Client::Client(Fn<void(LibUpdate)> updateCallback)
+: _updateCallback(std::move(updateCallback))
+, _thread([=] { check(); }) {
 }
 
 Client::~Client() {
@@ -114,9 +116,14 @@ void Client::check() {
 
 				scheduleResendOnError(*requestId);
 			}
-		} else if (requestId) {
-			QMutexLocker lock(&_mutex);
-			_requests.remove(*requestId);
+		} else {
+			if (requestId) {
+				QMutexLocker lock(&_mutex);
+				_requests.remove(*requestId);
+			} else if (!response.id && _updateCallback) {
+				_updateCallback(tonlib_api::move_object_as<tonlib_api::Update>(
+					std::move(response.object)));
+			}
 		}
 	}
 }

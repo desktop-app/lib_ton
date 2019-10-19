@@ -8,6 +8,7 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_storage.h"
+#include "ton/details/ton_parse_state.h"
 #include "ton/ton_config.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
@@ -73,10 +74,24 @@ constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 
 } // namespace
 
-External::External(const QString &path)
+External::External(const QString &path, Fn<void(Update)> &&updateCallback)
 : _basePath(path.endsWith('/') ? path : (path + '/'))
+, _updateCallback(std::move(updateCallback))
+, _lib(generateUpdateCallback())
 , _db(MakeDatabase(_basePath)) {
 	Expects(!path.isEmpty());
+}
+
+Fn<void(const TLUpdate &)> External::generateUpdateCallback() const {
+	if (!_updateCallback) {
+		return nullptr;
+	}
+	const auto weak = base::make_weak(this);
+	return [=](const TLUpdate &update) {
+		crl::on_main(weak, [=, update = Parse(update)]() mutable {
+			_updateCallback(std::move(update));
+		});
+	};
 }
 
 void External::open(

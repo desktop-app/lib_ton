@@ -140,6 +140,9 @@ public:
 
 	};
 
+	explicit RequestSender(
+		Fn<void(const TLUpdate &)> updateCallback = nullptr);
+
 	template <
 		typename Request,
 		typename = std::enable_if_t<

@@ -24,8 +24,9 @@ class Client final : public base::has_weak_ptr {
 public:
 	using LibRequest = tonlib_api::object_ptr<tonlib_api::Function>;
 	using LibResponse = tonlib_api::object_ptr<tonlib_api::Object>;
+	using LibUpdate = tonlib_api::object_ptr<tonlib_api::Update>;
 
-	Client();
+	explicit Client(Fn<void(LibUpdate)> updateCallback);
 	~Client();
 
 	RequestId send(
@@ -43,6 +44,7 @@ private:
 	tonlib::Client _wrapped;
 	std::atomic<RequestId> _requestIdAutoIncrement = 0;
 	std::atomic<uint32> _libRequestIdAutoIncrement = 0;
+	const Fn<void(LibUpdate)> _updateCallback;
 
 	QMutex _mutex;
 	base::flat_map<uint32, RequestId> _requestIdByLibRequestId;

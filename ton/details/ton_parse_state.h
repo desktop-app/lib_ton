@@ -26,5 +26,6 @@ namespace Ton::details {
 	const TransactionToSend &transaction);
 [[nodiscard]] TransactionCheckResult Parse(const TLquery_Fees &data);
 [[nodiscard]] std::vector<QString> Parse(const TLExportedKey &data);
+[[nodiscard]] Update Parse(const TLUpdate &data);
 
 } // namespace Ton::details
