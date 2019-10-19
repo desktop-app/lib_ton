@@ -32,7 +32,7 @@ public:
 	[[nodiscard]] rpl::producer<crl::time> refreshEachValue() const;
 
 	void preloadSlice(const TransactionId &lastId);
-	[[nodiscard]] rpl::producer<LoadedSlice> loaded() const;
+	[[nodiscard]] rpl::producer<Result<LoadedSlice>> loaded() const;
 
 private:
 	const not_null<Wallet*> _wallet;
@@ -43,7 +43,7 @@ private:
 	rpl::producer<WalletViewerState> _state;
 	rpl::variable<crl::time> _refreshEach;
 	rpl::event_stream<Callback<>> _refreshNowRequests;
-	rpl::event_stream<LoadedSlice> _loadedResults;
+	rpl::event_stream<Result<LoadedSlice>> _loadedResults;
 
 };
 

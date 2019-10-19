@@ -30,7 +30,7 @@ rpl::producer<WalletViewerState> AccountViewer::state() const {
 	return rpl::duplicate(_state);
 }
 
-rpl::producer<LoadedSlice> AccountViewer::loaded() const {
+rpl::producer<Result<LoadedSlice>> AccountViewer::loaded() const {
 	return _loadedResults.events();
 }
 
@@ -61,10 +61,11 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 	_preloadIds.emplace(lastId);
 	const auto done = [=](Result<TransactionsSlice> result) {
 		if (!result) {
-			return; // #TODO fatal?..
+			_loadedResults.fire(std::move(result.error()));
+			return;
 		}
 		_preloadIds.remove(lastId);
-		_loadedResults.fire({ lastId, std::move(*result) });
+		_loadedResults.fire(LoadedSlice{ lastId, std::move(*result) });
 	};
 	_wallet->requestTransactions(_address, lastId, crl::guard(this, done));
 }
