@@ -46,6 +46,34 @@ KeyCreator::KeyCreator(
 	})).send();
 }
 
+KeyCreator::KeyCreator(
+	not_null<RequestSender*> lib,
+	not_null<Storage::Cache::Database*> db,
+	const std::vector<QString> &words,
+	Fn<void(Result<>)> done)
+: _lib(lib)
+, _db(db)
+, _password(GenerateLocalPassword()) {
+	auto list = QVector<TLsecureString>();
+	list.reserve(words.size());
+	for (const auto &word : words) {
+		list.push_back(TLsecureString{ word.toUtf8() });
+	}
+	_lib->request(TLImportKey(
+		TLsecureString{ _password },
+		TLsecureString(),
+		tl_exportedKey(tl_vector<TLsecureString>(list))
+	)).done(crl::guard(this, [=](const TLKey &key) {
+		_state = State::Created;
+		key.match([&](const TLDkey &data) {
+			_key = data.vpublic_key().v;
+			_secret = data.vsecret().v;
+		});
+		InvokeCallback(done);
+	})).fail(crl::guard(this, [=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	})).send();
+}
 void KeyCreator::exportWords(
 		Fn<void(Result<std::vector<QString>>)> done) {
 	Expects(_state == State::Creating);

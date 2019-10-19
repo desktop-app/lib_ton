@@ -23,6 +23,11 @@ public:
 		not_null<RequestSender*> lib,
 		not_null<Storage::Cache::Database*> db,
 		Fn<void(Result<std::vector<QString>>)> done);
+	KeyCreator(
+		not_null<RequestSender*> lib,
+		not_null<Storage::Cache::Database*> db,
+		const std::vector<QString> &words,
+		Fn<void(Result<>)> done);
 
 	void save(
 		const QByteArray &password,

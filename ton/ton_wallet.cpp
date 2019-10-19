@@ -118,6 +118,24 @@ void Wallet::createKey(Callback<std::vector<QString>> done) {
 		std::move(created));
 }
 
+void Wallet::importKey(const std::vector<QString> &words, Callback<> done) {
+	Expects(_keyCreator == nullptr);
+	Expects(_keyDestroyer == nullptr);
+	Expects(_passwordChanger == nullptr);
+
+	auto created = [=](Result<> result) {
+		const auto destroyed = result
+			? std::unique_ptr<KeyCreator>()
+			: base::take(_keyCreator);
+		InvokeCallback(done, result);
+	};
+	_keyCreator = std::make_unique<KeyCreator>(
+		&_external->lib(),
+		&_external->db(),
+		words,
+		std::move(created));
+}
+
 void Wallet::saveKey(
 		const QByteArray &password,
 		Callback<QByteArray> done) {

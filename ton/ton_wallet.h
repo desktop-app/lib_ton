@@ -42,6 +42,7 @@ public:
 	const std::vector<QByteArray> &publicKeys() const;
 
 	void createKey(Callback<std::vector<QString>> done);
+	void importKey(const std::vector<QString> &words, Callback<> done);
 	void saveKey(
 		const QByteArray &password,
 		Callback<QByteArray> done);
