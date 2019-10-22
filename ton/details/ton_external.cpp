@@ -39,7 +39,7 @@ constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 }
 
 [[nodiscard]] QString DatabasePath(const QString &basePath) {
-	return SubPath(basePath, "data");
+	return SubPath(basePath, "db");
 }
 
 [[nodiscard]] QString SaltPath(const QString &basePath) {
