@@ -13,13 +13,13 @@ struct TransactionId {
 	QByteArray hash;
 };
 
-[[nodiscard]] bool operator==(
+bool operator==(
 	const TransactionId &a,
 	const TransactionId &b);
-[[nodiscard]] bool operator!=(
+bool operator!=(
 	const TransactionId &a,
 	const TransactionId &b);
-[[nodiscard]] bool operator<(
+bool operator<(
 	const TransactionId &a,
 	const TransactionId &b);
 
@@ -29,8 +29,8 @@ struct AccountState {
 	TransactionId lastTransactionId;
 };
 
-[[nodiscard]] bool operator==(const AccountState &a, const AccountState &b);
-[[nodiscard]] bool operator!=(const AccountState &a, const AccountState &b);
+bool operator==(const AccountState &a, const AccountState &b);
+bool operator!=(const AccountState &a, const AccountState &b);
 
 struct Message {
 	QString source;
@@ -51,18 +51,18 @@ struct Transaction {
 	std::vector<Message> outgoing;
 };
 
-[[nodiscard]] bool operator==(const Transaction &a, const Transaction &b);
-[[nodiscard]] bool operator!=(const Transaction &a, const Transaction &b);
+bool operator==(const Transaction &a, const Transaction &b);
+bool operator!=(const Transaction &a, const Transaction &b);
 
 struct TransactionsSlice {
 	std::vector<Transaction> list;
 	TransactionId previousId;
 };
 
-[[nodiscard]] bool operator==(
+bool operator==(
 	const TransactionsSlice &a,
 	const TransactionsSlice &b);
-[[nodiscard]] bool operator!=(
+bool operator!=(
 	const TransactionsSlice &a,
 	const TransactionsSlice &b);
 
@@ -93,10 +93,10 @@ struct PendingTransaction {
 	int64 sentUntilSyncTime = 0;
 };
 
-[[nodiscard]] bool operator==(
+bool operator==(
 	const PendingTransaction &a,
 	const PendingTransaction &b);
-[[nodiscard]] bool operator!=(
+bool operator!=(
 	const PendingTransaction &a,
 	const PendingTransaction &b);
 
@@ -107,8 +107,8 @@ struct WalletState {
 	std::vector<PendingTransaction> pendingTransactions;
 };
 
-[[nodiscard]] bool operator==(const WalletState &a, const WalletState &b);
-[[nodiscard]] bool operator!=(const WalletState &a, const WalletState &b);
+bool operator==(const WalletState &a, const WalletState &b);
+bool operator!=(const WalletState &a, const WalletState &b);
 
 struct WalletViewerState {
 	WalletState wallet;
@@ -129,8 +129,8 @@ struct SyncState {
 	bool valid() const;
 };
 
-[[nodiscard]] bool operator==(const SyncState &a, const SyncState &b);
-[[nodiscard]] bool operator!=(const SyncState &a, const SyncState &b);
+bool operator==(const SyncState &a, const SyncState &b);
+bool operator!=(const SyncState &a, const SyncState &b);
 
 struct LiteServerQuery {
 	int64 id = 0;

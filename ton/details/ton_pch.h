@@ -4,8 +4,6 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#pragma once
-
 #include <QtCore/QString>
 #include <QtCore/QByteArray>
 
