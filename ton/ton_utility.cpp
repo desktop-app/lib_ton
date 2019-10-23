@@ -106,7 +106,7 @@ void CreateKey(
 			const auto publicKey = result.vpublic_key().v;
 			const auto secret = result.vsecret().v;
 			GlobalSender->request(TLExportKey(
-				tl_inputKey(
+				tl_inputKeyRegular(
 					tl_key(tl_string(publicKey), TLsecureString{ secret }),
 					LocalPassword())
 			)).done([=](const TLexportedKey &result) {

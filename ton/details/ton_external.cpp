@@ -243,6 +243,7 @@ void External::startLibrary(const Config &config, Callback<> done) {
 		tl_logStreamFile(
 			tl_string(TonLibLogPath(_basePath)),
 			tl_int53(kMaxTonLibLogSize))));
+	RequestSender::Execute(TLSetLogVerbosityLevel(tl_int32(10)));
 #endif // _DEBUG
 
 	_lib.request(TLInit(

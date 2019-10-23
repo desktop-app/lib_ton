@@ -192,7 +192,7 @@ TLinputKey Wallet::prepareInputKey(
 		- begin(_publicKeys);
 	Assert(index < _secrets.size());
 
-	return tl_inputKey(
+	return tl_inputKeyRegular(
 		tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
 		TLsecureBytes{ password });
 }

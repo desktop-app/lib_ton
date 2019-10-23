@@ -81,7 +81,7 @@ void KeyCreator::exportWords(
 	Expects(!_secret.isEmpty());
 
 	_lib->request(TLExportKey(
-		tl_inputKey(
+		tl_inputKeyRegular(
 			tl_key(tl_string(_key), TLsecureBytes{ _secret }),
 			TLsecureBytes{ _password })
 	)).done(crl::guard(this, [=](const TLExportedKey &result) {
@@ -142,7 +142,7 @@ void KeyCreator::changePassword(
 
 	_state = State::ChangingPassword;
 	_lib->request(TLChangeLocalPassword(
-		tl_inputKey(
+		tl_inputKeyRegular(
 			tl_key(tl_string(_key), TLsecureBytes{ _secret }),
 			TLsecureBytes{ _password }),
 		TLsecureBytes{ password }

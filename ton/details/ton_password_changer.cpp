@@ -31,7 +31,7 @@ void PasswordChanger::changeNext() {
 
 	const auto index = _newSecrets.size();
 	_lib->request(TLChangeLocalPassword(
-		tl_inputKey(
+		tl_inputKeyRegular(
 			tl_key(
 				tl_string(_list.entries[index].publicKey),
 				TLsecureBytes{ _list.entries[index].secret }),
