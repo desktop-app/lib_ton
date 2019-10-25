@@ -59,8 +59,8 @@ AccountViewers::Viewers *AccountViewers::findRefreshingViewers(
 }
 
 void AccountViewers::finishRefreshing(Viewers &viewers, Result<> result) {
-	viewers.refreshing = false;
 	viewers.lastRefresh = crl::now();
+	viewers.refreshing = false;
 	InvokeCallback(base::take(viewers.refreshed), result);
 }
 
