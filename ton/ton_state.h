@@ -8,6 +8,8 @@
 
 namespace Ton {
 
+inline constexpr auto kUnknownBalance = int64(-666);
+
 struct TransactionId {
 	int64 lt = 0;
 	QByteArray hash;
@@ -24,7 +26,7 @@ bool operator<(
 	const TransactionId &b);
 
 struct AccountState {
-	int64 balance = 0;
+	int64 balance = kUnknownBalance;
 	int64 syncTime = 0;
 	TransactionId lastTransactionId;
 };
