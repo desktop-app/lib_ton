@@ -13,7 +13,7 @@
 #include "ton/details/ton_password_changer.h"
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_parse_state.h"
-#include "ton/ton_config.h"
+#include "ton/ton_settings.h"
 #include "ton/ton_state.h"
 #include "ton/ton_account_viewer.h"
 #include "storage/cache/storage_cache_database.h"
@@ -81,9 +81,9 @@ bool Wallet::CheckAddress(const QString &address) {
 
 void Wallet::open(
 		const QByteArray &globalPassword,
-		const Config &config,
+		const Settings &defaultSettings,
 		Callback<> done) {
-	_external->open(globalPassword, config, [=](Result<WalletList> result) {
+	auto opened = [=](Result<WalletList> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
@@ -91,11 +91,16 @@ void Wallet::open(
 		setWalletList(*result);
 		_external->lib().request(TLSync()).send();
 		InvokeCallback(done);
-	});
+	};
+	_external->open(globalPassword, defaultSettings, std::move(opened));
 }
 
-void Wallet::setConfig(const Config &config, Callback<> done) {
-	_external->setConfig(config, std::move(done));
+const Settings &Wallet::settings() const {
+	return _external->settings();
+}
+
+void Wallet::updateSettings(const Settings &settings, Callback<> done) {
+	_external->updateSettings(settings, std::move(done));
 }
 
 rpl::producer<Update> Wallet::updates() const {

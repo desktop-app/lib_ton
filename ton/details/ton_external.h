@@ -8,6 +8,7 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/ton_result.h"
+#include "ton/ton_settings.h"
 #include "storage/storage_databases.h"
 #include "base/bytes.h"
 #include "base/weak_ptr.h"
@@ -17,7 +18,6 @@ class Database;
 } // namespace Storage::Cache
 
 namespace Ton {
-struct Config;
 struct Update;
 } // namespace Ton
 
@@ -32,9 +32,11 @@ public:
 
 	void open(
 		const QByteArray &globalPassword,
-		const Config &config,
+		const Settings &defaultSettings,
 		Callback<WalletList> done);
-	void setConfig(const Config &config, Callback<> done);
+
+	[[nodiscard]] const Settings &settings() const;
+	void updateSettings(const Settings &settings, Callback<> done);
 
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Storage::Cache::Database &db();
@@ -51,11 +53,12 @@ private:
 	[[nodiscard]] Fn<void(const TLUpdate &)> generateUpdateCallback() const;
 	void openDatabase(
 		const QByteArray &globalPassword,
-		Callback<WalletList> done);
-	void startLibrary(const Config &config, Callback<> done);
+		Callback<Settings> done);
+	void startLibrary(Callback<> done);
 
 	const QString _basePath;
 	const Fn<void(Update)> _updateCallback;
+	Settings _settings;
 	RequestSender _lib;
 	Storage::DatabasePointer _db;
 

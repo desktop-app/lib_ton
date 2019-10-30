@@ -8,12 +8,14 @@
 
 #include "ton/details/ton_request_sender.h"
 #include "ton/ton_state.h"
+#include "ton/ton_settings.h"
 #include "storage/cache/storage_cache_database.h"
 #include "ton_storage_tl.h"
 
 namespace Ton::details {
 namespace {
 
+constexpr auto kSettingsKey = Storage::Cache::Key{ 1ULL, 0ULL };
 constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
 
 [[nodiscard]] Storage::Cache::Key WalletStateKey(const QString &address) {
@@ -29,6 +31,8 @@ constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
 	return { 0x2ULL | (a & 0xFFFFFFFFFFFF0000ULL), b };
 }
 
+TLstorage_Bool Serialize(const bool &data);
+bool Deserialize(const TLstorage_Bool &data);
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data);
 WalletList::Entry Deserialize(const TLstorage_WalletEntry &data);
 TLstorage_WalletList Serialize(const WalletList &data);
@@ -47,6 +51,8 @@ TLstorage_PendingTransaction Serialize(const PendingTransaction &data);
 PendingTransaction Deserialize(const TLstorage_PendingTransaction &data);
 TLstorage_WalletState Serialize(const WalletState &data);
 WalletState Deserialize(const TLstorage_WalletState &data);
+TLstorage_Settings Serialize(const Settings &data);
+Settings Deserialize(const TLstorage_Settings &data);
 
 template <
 	typename Data,
@@ -70,6 +76,18 @@ std::vector<Result> Deserialize(const TLvector<TLType> &data) {
 		result.emplace_back(Deserialize(entry));
 	}
 	return result;
+}
+
+TLstorage_Bool Serialize(const bool &data) {
+	return data ? make_storage_true() : make_storage_false();
+}
+
+bool Deserialize(const TLstorage_Bool &data) {
+	return data.match([&](const TLDstorage_true &data) {
+		return true;
+	}, [&](const TLDstorage_false &data) {
+		return false;
+	});
 }
 
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data) {
@@ -218,13 +236,35 @@ TLstorage_WalletState Serialize(const WalletState &data) {
 }
 
 WalletState Deserialize(const TLstorage_WalletState &data) {
-	auto result = WalletState();
-	data.match([&](const TLDstorage_walletState &data) {
-		result.address = tl::utf16(data.vaddress());
-		result.account = Deserialize(data.vaccount());
-		result.lastTransactions = Deserialize(data.vlastTransactions());
-		result.pendingTransactions = Deserialize(
-			data.vpendingTransactions());
+	return data.match([&](const TLDstorage_walletState &data) {
+		return WalletState{
+			tl::utf16(data.vaddress()),
+			Deserialize(data.vaccount()),
+			Deserialize(data.vlastTransactions()),
+			Deserialize(data.vpendingTransactions())
+		};
+	});
+}
+
+TLstorage_Settings Serialize(const Settings &data) {
+	return make_storage_settings(
+		tl_string(data.blockchainName),
+		tl_string(data.configUrl),
+		tl_string(data.config),
+		Serialize(data.useCustomConfig),
+		Serialize(data.useNetworkCallbacks));
+}
+
+Settings Deserialize(const TLstorage_Settings &data) {
+	auto result = Settings();
+	return data.match([&](const TLDstorage_settings &data) {
+		return Settings{
+			tl::utf16(data.vblockchainName()),
+			tl::utf16(data.vconfigUrl()),
+			tl::utf8(data.vconfig()),
+			Deserialize(data.vuseCustomConfig()),
+			Deserialize(data.vuseNetworkCallbacks())
+		};
 	});
 	return result;
 }
@@ -337,6 +377,34 @@ void LoadWalletState(
 			done((result.address == address)
 				? std::move(result)
 				: WalletState{ address });
+		});
+	});
+}
+
+void SaveSettings(
+		not_null<Storage::Cache::Database*> db,
+		const Settings &settings,
+		Callback<> done) {
+	auto saved = [=](Storage::Cache::Error error) {
+		crl::on_main([=] {
+			if (const auto bad = ErrorFromStorage(error)) {
+				InvokeCallback(done, *bad);
+			} else {
+				InvokeCallback(done);
+			}
+		});
+	};
+	db->put(kSettingsKey, Pack(settings), std::move(saved));
+}
+
+void LoadSettings(
+		not_null<Storage::Cache::Database*> db,
+		Fn<void(Settings&&)> done) {
+	Expects(done != nullptr);
+
+	db->get(kSettingsKey, [=](QByteArray value) {
+		crl::on_main([=, result = Unpack<Settings>(value)]() mutable {
+			done(std::move(result));
 		});
 	});
 }

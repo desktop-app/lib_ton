@@ -21,6 +21,7 @@ struct Transaction;
 struct TransactionsSlice;
 struct PendingTransaction;
 struct WalletState;
+struct Settings;
 } // namespace Ton
 
 namespace Ton::details {
@@ -60,5 +61,13 @@ void LoadWalletState(
 	not_null<Storage::Cache::Database*> db,
 	const QString &address,
 	Fn<void(WalletState&&)> done);
+
+void SaveSettings(
+	not_null<Storage::Cache::Database*> db,
+	const Settings &settings,
+	Callback<> done);
+void LoadSettings(
+	not_null<Storage::Cache::Database*> db,
+	Fn<void(Settings&&)> done);
 
 } // namespace Ton::details

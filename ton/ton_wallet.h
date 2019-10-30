@@ -25,7 +25,7 @@ class AccountViewers;
 class TLinputKey;
 } // namespace details
 
-struct Config;
+struct Settings;
 class AccountViewer;
 
 class Wallet final : public base::has_weak_ptr {
@@ -35,9 +35,10 @@ public:
 
 	void open(
 		const QByteArray &globalPassword,
-		const Config &config,
+		const Settings &defaultSettings,
 		Callback<> done);
-	void setConfig(const Config &config, Callback<> done);
+	[[nodiscard]] const Settings &settings() const;
+	void updateSettings(const Settings &settings, Callback<> done);
 
 	[[nodiscard]] rpl::producer<Update> updates() const;
 

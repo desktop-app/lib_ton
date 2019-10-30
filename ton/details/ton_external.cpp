@@ -9,7 +9,7 @@
 #include "ton/details/ton_request_sender.h"
 #include "ton/details/ton_storage.h"
 #include "ton/details/ton_parse_state.h"
-#include "ton/ton_config.h"
+#include "ton/ton_settings.h"
 #include "storage/cache/storage_cache_database.h"
 #include "storage/storage_encryption.h"
 #include "base/openssl_help.h"
@@ -96,7 +96,7 @@ Fn<void(const TLUpdate &)> External::generateUpdateCallback() const {
 
 void External::open(
 		const QByteArray &globalPassword,
-		const Config &config,
+		const Settings &defaultSettings,
 		Callback<WalletList> done) {
 	Expects(_state == State::Initial);
 
@@ -106,34 +106,60 @@ void External::open(
 		InvokeCallback(done, result.error());
 		return;
 	}
-	openDatabase(globalPassword, [=](Result<WalletList> result) {
+	_settings = defaultSettings;
+	openDatabase(globalPassword, [=](Result<Settings> result) {
 		if (!result) {
 			_state = State::Initial;
-			InvokeCallback(done, result);
+			InvokeCallback(done, result.error());
 			return;
 		}
-		const auto list = std::move(*result);
-		startLibrary(config, [=](Result<> result) {
+		if (!result->config.isEmpty()) {
+			_settings = *result;
+		}
+		const auto future = std::make_shared<std::optional<WalletList>>();
+		LoadWalletList(_db.get(), crl::guard(this, [=](WalletList &&list) {
+			if (_state == State::Opened) {
+				InvokeCallback(done, std::move(list));
+			} else {
+				*future = std::move(list);
+			}
+		}));
+		startLibrary([=](Result<> result) {
 			if (!result) {
 				_state = State::Initial;
 				InvokeCallback(done, result.error());
 				return;
 			}
 			_state = State::Opened;
-			InvokeCallback(done, list);
+			if (*future) {
+				InvokeCallback(done, std::move(**future));
+			}
 		});
 	});
 }
 
-void External::setConfig(const Config &config, Callback<> done) {
+const Settings &External::settings() const {
+	Expects(_state == State::Opened);
+
+	return _settings;
+}
+
+void External::updateSettings(const Settings &settings, Callback<> done) {
+	_settings = settings;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
-			tl_string(config.json),
-			tl_string(config.blockchainName),
-			tl_from(config.useNetworkCallbacks),
-			tl_from(config.ignoreCache))
+			tl_string(_settings.config),
+			tl_string(_settings.blockchainName),
+			tl_from(_settings.useNetworkCallbacks),
+			tl_from(false))
 	)).done([=] {
-		InvokeCallback(done);
+		const auto saved = [=](Result<> result) {
+			if (!result) {
+				InvokeCallback(done, result.error());
+			}
+			InvokeCallback(done);
+		};
+		SaveSettings(_db.get(), settings, crl::guard(this, saved));
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
@@ -212,7 +238,7 @@ Result<> External::writeNewSalt() {
 
 void External::openDatabase(
 		const QByteArray &globalPassword,
-		Callback<WalletList> done) {
+		Callback<Settings> done) {
 	Expects(_salt.size() == kSaltSize);
 
 	const auto weak = base::make_weak(this);
@@ -222,16 +248,16 @@ void External::openDatabase(
 			if (const auto bad = ErrorFromStorage(error)) {
 				InvokeCallback(done, *bad);
 			} else {
-				const auto loaded = [=](WalletList &&result) {
+				const auto loaded = [=](Settings &&result) {
 					InvokeCallback(done, std::move(result));
 				};
-				LoadWalletList(_db.get(), crl::guard(weak, loaded));
+				LoadSettings(_db.get(), crl::guard(weak, loaded));
 			}
 		});
 	});
 }
 
-void External::startLibrary(const Config &config, Callback<> done) {
+void External::startLibrary(Callback<> done) {
 	const auto path = LibraryStoragePath(_basePath);
 	if (!QDir().mkpath(path)) {
 		InvokeCallback(done, Error{ Error::Type::IO, path });
@@ -249,10 +275,10 @@ void External::startLibrary(const Config &config, Callback<> done) {
 	_lib.request(TLInit(
 		tl_options(
 			tl_config(
-				tl_string(config.json),
-				tl_string(config.blockchainName),
-				tl_from(config.useNetworkCallbacks),
-				tl_from(config.ignoreCache)),
+				tl_string(_settings.config),
+				tl_string(_settings.blockchainName),
+				tl_from(_settings.useNetworkCallbacks),
+				tl_from(false)),
 			tl_keyStoreTypeDirectory(tl_string(path)))
 	)).done([=] {
 		InvokeCallback(done);

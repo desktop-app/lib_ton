@@ -8,11 +8,12 @@
 
 namespace Ton {
 
-struct Config {
-	QByteArray json;
+struct Settings {
 	QString blockchainName;
+	QString configUrl;
+	QByteArray config;
 	bool useNetworkCallbacks = false;
-	bool ignoreCache = false;
+	bool useCustomConfig = false;
 };
 
 } // namespace Ton
