@@ -23,6 +23,7 @@ class KeyDestroyer;
 class PasswordChanger;
 class AccountViewers;
 class TLinputKey;
+class WebLoader;
 } // namespace details
 
 struct Settings;
@@ -85,6 +86,8 @@ public:
 	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
 		const QString &address);
 
+	void loadWebResource(const QString &url, Callback<QByteArray> done);
+
 private:
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
@@ -98,6 +101,7 @@ private:
 
 	const std::unique_ptr<details::External> _external;
 	const std::unique_ptr<details::AccountViewers> _accountViewers;
+	std::unique_ptr<details::WebLoader> _webLoader;
 	std::unique_ptr<details::KeyCreator> _keyCreator;
 	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
 	std::unique_ptr<details::PasswordChanger> _passwordChanger;

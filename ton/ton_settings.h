@@ -12,8 +12,8 @@ struct Settings {
 	QString blockchainName;
 	QString configUrl;
 	QByteArray config;
-	bool useNetworkCallbacks = false;
 	bool useCustomConfig = false;
+	bool useNetworkCallbacks = false;
 };
 
 } // namespace Ton

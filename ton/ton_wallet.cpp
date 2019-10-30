@@ -13,6 +13,7 @@
 #include "ton/details/ton_password_changer.h"
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_parse_state.h"
+#include "ton/details/ton_web_loader.h"
 #include "ton/ton_settings.h"
 #include "ton/ton_state.h"
 #include "ton/ton_account_viewer.h"
@@ -435,6 +436,15 @@ void Wallet::requestTransactions(
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
 		const QString &address) {
 	return _accountViewers->createAccountViewer(address);
+}
+
+void Wallet::loadWebResource(const QString &url, Callback<QByteArray> done) {
+	if (!_webLoader) {
+		_webLoader = std::make_unique<WebLoader>([=] {
+			_webLoader = nullptr;
+		});
+	}
+	_webLoader->load(url, std::move(done));
 }
 
 Fn<void(Update)> Wallet::generateUpdatesCallback() {

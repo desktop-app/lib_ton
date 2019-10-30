@@ -71,6 +71,8 @@
       '<(src_loc)/ton/details/ton_tl_core.h',
       '<(src_loc)/ton/details/ton_tl_core_conversion.cpp',
       '<(src_loc)/ton/details/ton_tl_core_conversion.h',
+      '<(src_loc)/ton/details/ton_web_loader.cpp',
+      '<(src_loc)/ton/details/ton_web_loader.h',
       '<(src_loc)/ton/ton_account_viewer.cpp',
       '<(src_loc)/ton/ton_account_viewer.h',
       '<(src_loc)/ton/ton_result.h',

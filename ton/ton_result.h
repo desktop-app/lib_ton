@@ -15,6 +15,7 @@ struct Error {
 		IO,
 		WrongPassword,
 		TonLib,
+		Web,
 	};
 
 	Error(Type type, const QString &details = {});
