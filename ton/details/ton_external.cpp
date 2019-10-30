@@ -145,13 +145,14 @@ const Settings &External::settings() const {
 }
 
 void External::updateSettings(const Settings &settings, Callback<> done) {
+	const auto clear = (_settings.blockchainName != settings.blockchainName);
 	_settings = settings;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
 			tl_string(_settings.config),
 			tl_string(_settings.blockchainName),
 			tl_from(_settings.useNetworkCallbacks),
-			tl_from(false))
+			tl_from(clear))
 	)).done([=] {
 		const auto saved = [=](Result<> result) {
 			if (!result) {
