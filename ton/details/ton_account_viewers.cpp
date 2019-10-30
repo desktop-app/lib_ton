@@ -59,7 +59,10 @@ AccountViewers::Viewers *AccountViewers::findRefreshingViewers(
 }
 
 void AccountViewers::finishRefreshing(Viewers &viewers, Result<> result) {
-	viewers.lastRefresh = crl::now();
+	viewers.lastRefreshFinished = crl::now();
+	if (result) {
+		viewers.lastGoodRefresh = crl::now();
+	}
 	viewers.refreshing = false;
 	InvokeCallback(base::take(viewers.refreshed), result);
 }
@@ -172,7 +175,7 @@ void AccountViewers::checkNextRefresh() {
 		if (viewers.refreshing.current()) {
 			continue;
 		}
-		Assert(viewers.lastRefresh.current() > 0);
+		Assert(viewers.lastRefreshFinished > 0);
 		Assert(!viewers.list.empty());
 		const auto min = (*ranges::min_element(
 			viewers.list,
@@ -183,7 +186,7 @@ void AccountViewers::checkNextRefresh() {
 			: std::min(min, kRefreshWithPendingTimeout);
 		const auto next
 			= viewers.nextRefresh
-			= viewers.lastRefresh.current() + use;
+			= viewers.lastRefreshFinished + use;
 		const auto in = next - now;
 		if (in <= 0) {
 			refreshAccount(address, viewers);
@@ -225,7 +228,7 @@ std::unique_ptr<AccountViewer> AccountViewers::createAccountViewer(
 	auto &viewers = i->second;
 	auto state = rpl::combine(
 		viewers.state.value(),
-		viewers.lastRefresh.value(),
+		viewers.lastGoodRefresh.value(),
 		viewers.refreshing.value()
 	) | rpl::map([](WalletState &&state, crl::time last, bool refreshing) {
 		return WalletViewerState{ std::move(state), last, refreshing };

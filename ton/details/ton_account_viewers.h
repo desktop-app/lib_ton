@@ -40,8 +40,9 @@ public:
 private:
 	struct Viewers {
 		rpl::variable<WalletState> state;
-		rpl::variable<crl::time> lastRefresh = 0;
+		rpl::variable<crl::time> lastGoodRefresh = 0;
 		rpl::variable<bool> refreshing = false;
+		crl::time lastRefreshFinished = 0;
 		crl::time nextRefresh = 0;
 		Callback<> refreshed;
 		std::vector<not_null<AccountViewer*>> list;
