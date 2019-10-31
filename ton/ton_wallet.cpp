@@ -81,8 +81,15 @@ base::flat_set<QString> Wallet::GetValidWords() {
 }
 
 Result<> Wallet::CheckConfig(const QByteArray &config) {
-	const auto result = RequestSender::Execute(TLValidateConfig(
-		tl_string(config)));
+	// We want to check only validity of config,
+	// not validity in one specific blockchain_name.
+	// So we generate a random name.
+	const auto result = RequestSender::Execute(TLoptions_ValidateConfig(
+		tl_config(
+			tl_string(config),
+			tl_string(QString()),
+			tl_from(false),
+			tl_from(false))));
 	return result ? Result<>() : result.error();
 }
 
