@@ -109,6 +109,10 @@ void Wallet::open(
 	_external->open(globalPassword, defaultSettings, std::move(opened));
 }
 
+void Wallet::start(Callback<> done) {
+	_external->start(std::move(done));
+}
+
 const Settings &Wallet::settings() const {
 	return _external->settings();
 }

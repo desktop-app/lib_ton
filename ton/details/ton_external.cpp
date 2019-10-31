@@ -271,20 +271,33 @@ void External::startLibrary(Callback<> done) {
 			tl_string(TonLibLogPath(_basePath)),
 			tl_int53(kMaxTonLibLogSize))));
 	RequestSender::Execute(TLSetLogVerbosityLevel(tl_int32(10)));
+#else // _DEBUG
+	RequestSender::Execute(TLSetLogStream(
+		tl_logStreamEmpty()));
 #endif // _DEBUG
 
 	_lib.request(TLInit(
 		tl_options(
-			tl_config(
-				tl_string(_settings.config),
-				tl_string(_settings.blockchainName),
-				tl_from(_settings.useNetworkCallbacks),
-				tl_from(false)),
+			nullptr,
 			tl_keyStoreTypeDirectory(tl_string(path)))
 	)).done([=] {
 		InvokeCallback(done);
 	}).fail([=](const TLError &error) {
 		_db->close();
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
+void External::start(Callback<> done) {
+	_lib.request(TLoptions_SetConfig(
+		tl_config(
+			tl_string(_settings.config),
+			tl_string(_settings.blockchainName),
+			tl_from(_settings.useNetworkCallbacks),
+			tl_from(false))
+	)).done([=] {
+		InvokeCallback(done);
+	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
 }

@@ -34,6 +34,7 @@ public:
 		const QByteArray &globalPassword,
 		const Settings &defaultSettings,
 		Callback<WalletList> done);
+	void start(Callback<> done);
 
 	[[nodiscard]] const Settings &settings() const;
 	void updateSettings(const Settings &settings, Callback<> done);
