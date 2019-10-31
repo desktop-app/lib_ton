@@ -40,8 +40,8 @@ TransactionId Parse(const TLinternal_TransactionId &data) {
 	});
 }
 
-AccountState Parse(const TLwallet_AccountState &data) {
-	return data.match([&](const TLDwallet_accountState &data) {
+AccountState Parse(const TLwallet_v3_AccountState &data) {
+	return data.match([&](const TLDwallet_v3_accountState &data) {
 		auto result = AccountState();
 		result.balance = data.vbalance().v;
 		result.lastTransactionId = Parse(data.vlast_transaction_id());

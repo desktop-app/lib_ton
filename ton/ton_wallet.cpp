@@ -49,16 +49,6 @@ Wallet::Wallet(const QString &path)
 
 Wallet::~Wallet() = default;
 
-QString Wallet::GetAddress(const QByteArray &publicKey) {
-	return RequestSender::Execute(TLwallet_GetAccountAddress(
-		tl_wallet_initialAccountState(tl_string(publicKey))
-	)).value_or(
-		tl_accountAddress(tl_string())
-	).match([&](const TLDaccountAddress &data) {
-		return tl::utf16(data.vaccount_address());
-	});
-}
-
 bool Wallet::CheckAddress(const QString &address) {
 	return RequestSender::Execute(TLUnpackAccountAddress(
 		tl_string(address)
@@ -81,16 +71,8 @@ base::flat_set<QString> Wallet::GetValidWords() {
 }
 
 Result<> Wallet::CheckConfig(const QByteArray &config) {
-	// We want to check only validity of config,
-	// not validity in one specific blockchain_name.
-	// So we generate a random name.
-	const auto result = RequestSender::Execute(TLoptions_ValidateConfig(
-		tl_config(
-			tl_string(config),
-			tl_string(QString()),
-			tl_from(false),
-			tl_from(false))));
-	return result ? Result<>() : result.error();
+	const auto walletId = External::WalletId(config);
+	return walletId ? Result<>() : walletId.error();
 }
 
 void Wallet::open(
@@ -110,7 +92,28 @@ void Wallet::open(
 }
 
 void Wallet::start(Callback<> done) {
-	_external->start(std::move(done));
+	_external->start([=](Result<int64> result) {
+		if (!result) {
+			InvokeCallback(done, result.error());
+			return;
+		}
+		_walletId = *result;
+		InvokeCallback(done);
+	});
+}
+
+QString Wallet::getAddress(const QByteArray &publicKey) const {
+	Expects(_walletId.has_value());
+
+	return RequestSender::Execute(TLwallet_v3_GetAccountAddress(
+		tl_wallet_v3_initialAccountState(
+			tl_string(publicKey),
+			tl_int53(*_walletId))
+	)).value_or(
+		tl_accountAddress(tl_string())
+	).match([&](const TLDaccountAddress &data) {
+		return tl::utf16(data.vaccount_address());
+	});
 }
 
 const Settings &Wallet::settings() const {
@@ -118,7 +121,17 @@ const Settings &Wallet::settings() const {
 }
 
 void Wallet::updateSettings(const Settings &settings, Callback<> done) {
-	_external->updateSettings(settings, std::move(done));
+	const auto name = _external->settings().blockchainName;
+	const auto detach = (name != settings.blockchainName);
+	_external->updateSettings(settings, [=](Result<int64> result) {
+		if (!result) {
+			InvokeCallback(done, result.error());
+			return;
+		}
+		Expects(!_walletId || *_walletId == *result || detach);
+		_walletId = *result;
+		InvokeCallback(done);
+	});
 }
 
 rpl::producer<Update> Wallet::updates() const {
@@ -322,7 +335,7 @@ void Wallet::checkSendGrams(
 		Callback<TransactionCheckResult> done) {
 	Expects(transaction.amount > 0);
 
-	const auto sender = GetAddress(publicKey);
+	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
 
 	const auto index = ranges::find(_publicKeys, publicKey)
@@ -367,7 +380,7 @@ void Wallet::sendGrams(
 		Callback<> done) {
 	Expects(transaction.amount > 0);
 
-	const auto sender = GetAddress(publicKey);
+	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
 
 	const auto send = [=](int64 id) {
@@ -422,6 +435,8 @@ void Wallet::requestState(
 			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_TEST_WALLET" });
 		}, [&](const TLDgeneric_accountStateRaw &data) {
 			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_RAW" });
+		}, [&](const TLDgeneric_accountStateWallet &data) {
+			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_SIMPLE" });
 		}, [&](const auto &data) {
 			finish(Parse(data.vaccount_state()));
 		});

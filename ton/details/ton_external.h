@@ -34,13 +34,15 @@ public:
 		const QByteArray &globalPassword,
 		const Settings &defaultSettings,
 		Callback<WalletList> done);
-	void start(Callback<> done);
+	void start(Callback<int64> done);
 
 	[[nodiscard]] const Settings &settings() const;
-	void updateSettings(const Settings &settings, Callback<> done);
+	void updateSettings(const Settings &settings, Callback<int64> done);
 
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Storage::Cache::Database &db();
+
+	[[nodiscard]] static Result<int64> WalletId(const QByteArray &config);
 
 private:
 	enum class State {

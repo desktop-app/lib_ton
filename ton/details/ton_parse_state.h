@@ -12,7 +12,7 @@
 namespace Ton::details {
 
 [[nodiscard]] TransactionId Parse(const TLinternal_TransactionId &data);
-[[nodiscard]] AccountState Parse(const TLwallet_AccountState &data);
+[[nodiscard]] AccountState Parse(const TLwallet_v3_AccountState &data);
 [[nodiscard]] AccountState Parse(const TLuninited_AccountState &data);
 [[nodiscard]] Transaction Parse(const TLraw_Transaction &data);
 [[nodiscard]] TransactionsSlice Parse(const TLraw_Transactions &data);

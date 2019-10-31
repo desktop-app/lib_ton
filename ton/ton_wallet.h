@@ -39,6 +39,8 @@ public:
 		const Settings &defaultSettings,
 		Callback<> done);
 	void start(Callback<> done);
+	[[nodiscard]] QString getAddress(const QByteArray &publicKey) const;
+
 	[[nodiscard]] const Settings &settings() const;
 	void updateSettings(const Settings &settings, Callback<> done);
 
@@ -73,7 +75,6 @@ public:
 		Callback<PendingTransaction> ready,
 		Callback<> done);
 
-	[[nodiscard]] static QString GetAddress(const QByteArray &publicKey);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
 	[[nodiscard]] static base::flat_set<QString> GetValidWords();
 	[[nodiscard]] static Result<> CheckConfig(const QByteArray &config);
@@ -97,6 +98,7 @@ private:
 		const QByteArray &password) const;
 	[[nodiscard]] Fn<void(Update)> generateUpdatesCallback();
 
+	std::optional<int64> _walletId;
 	rpl::event_stream<Update> _updates;
 	SyncState _lastSyncStateUpdate;
 

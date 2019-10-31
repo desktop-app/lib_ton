@@ -144,9 +144,12 @@ const Settings &External::settings() const {
 	return _settings;
 }
 
-void External::updateSettings(const Settings &settings, Callback<> done) {
+void External::updateSettings(
+		const Settings &settings,
+		Callback<int64> done) {
 	const auto clear = (_settings.blockchainName != settings.blockchainName);
 	_settings = settings;
+	const auto config = _settings.config;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
 			tl_string(_settings.config),
@@ -158,7 +161,9 @@ void External::updateSettings(const Settings &settings, Callback<> done) {
 			if (!result) {
 				InvokeCallback(done, result.error());
 			}
-			InvokeCallback(done);
+			const auto walletId = WalletId(config);
+			Assert(walletId.has_value());
+			InvokeCallback(done, *walletId);
 		};
 		SaveSettings(_db.get(), settings, crl::guard(this, saved));
 	}).fail([=](const TLError &error) {
@@ -172,6 +177,24 @@ RequestSender &External::lib() {
 
 Storage::Cache::Database &External::db() {
 	return *_db;
+}
+
+Result<int64> External::WalletId(const QByteArray &config) {
+	// We want to check only validity of config,
+	// not validity in one specific blockchain_name.
+	// So we pass an empty blockchain name.
+	const auto result = RequestSender::Execute(TLoptions_ValidateConfig(
+		tl_config(
+			tl_string(config),
+			tl_string(QString()),
+			tl_from(false),
+			tl_from(false))));
+	if (!result) {
+		return result.error();
+	}
+	return result->match([&](const TLDoptions_configInfo &data) {
+		return data.vdefault_wallet_id().v;
+	});
 }
 
 Result<> External::loadSalt() {
@@ -288,7 +311,8 @@ void External::startLibrary(Callback<> done) {
 	}).send();
 }
 
-void External::start(Callback<> done) {
+void External::start(Callback<int64> done) {
+	const auto config = _settings.config;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
 			tl_string(_settings.config),
@@ -296,7 +320,9 @@ void External::start(Callback<> done) {
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(false))
 	)).done([=] {
-		InvokeCallback(done);
+		const auto result = WalletId(config);
+		Assert(result.has_value());
+		InvokeCallback(done, result);
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
