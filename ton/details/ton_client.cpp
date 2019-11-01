@@ -10,7 +10,7 @@ namespace Ton::details {
 namespace {
 
 constexpr auto kMinRequestResendDelay = crl::time(100);
-constexpr auto kMaxRequestResendDelay = 60 * crl::time(1000);
+constexpr auto kMaxRequestResendDelay = 10 * crl::time(1000);
 
 crl::time NextRequestResendDelay(crl::time currentDelay) {
 	return !currentDelay
