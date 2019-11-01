@@ -60,6 +60,8 @@
       '<(src_loc)/ton/details/ton_key_creator.h',
       '<(src_loc)/ton/details/ton_key_destroyer.cpp',
       '<(src_loc)/ton/details/ton_key_destroyer.h',
+      '<(src_loc)/ton/details/ton_local_time_syncer.cpp',
+      '<(src_loc)/ton/details/ton_local_time_syncer.h',
       '<(src_loc)/ton/details/ton_parse_state.cpp',
       '<(src_loc)/ton/details/ton_parse_state.h',
       '<(src_loc)/ton/details/ton_password_changer.cpp',

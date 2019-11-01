@@ -45,6 +45,10 @@ Wallet::Wallet(const QString &path)
 		// Init random, because it is slow.
 		static_cast<void>(openssl::RandomValue<uint8>());
 	});
+	_accountViewers->blockchainTime(
+	) | rpl::start_with_next([=](BlockchainTime time) {
+		checkLocalTime(time);
+	}, _lifetime);
 }
 
 Wallet::~Wallet() = default;
@@ -182,7 +186,7 @@ void Wallet::saveKey(
 		Callback<QByteArray> done) {
 	Expects(_keyCreator != nullptr);
 
-	auto saved = [=](Result<details::WalletList::Entry> result) {
+	auto saved = [=](Result<WalletList::Entry> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
@@ -211,10 +215,10 @@ void Wallet::exportKey(
 	}).send();
 }
 
-details::WalletList Wallet::collectWalletList() const {
+WalletList Wallet::collectWalletList() const {
 	Expects(_publicKeys.size() == _secrets.size());
 
-	auto result = details::WalletList();
+	auto result = WalletList();
 	for (auto i = 0, count = int(_secrets.size()); i != count; ++i) {
 		result.entries.push_back({ _publicKeys[i], _secrets[i] });
 	}
@@ -233,7 +237,7 @@ TLinputKey Wallet::prepareInputKey(
 		TLsecureBytes{ password });
 }
 
-void Wallet::setWalletList(const details::WalletList &list) {
+void Wallet::setWalletList(const WalletList &list) {
 	Expects(_publicKeys.empty());
 	Expects(_secrets.empty());
 
@@ -483,6 +487,18 @@ Fn<void(Update)> Wallet::generateUpdatesCallback() {
 		}
 		_updates.fire(std::move(update));
 	};
+}
+
+void Wallet::checkLocalTime(BlockchainTime time) {
+	if (_localTimeSyncer) {
+		_localTimeSyncer->updateBlockchainTime(time);
+		return;
+	} else if (LocalTimeSyncer::IsLocalTimeBad(time)) {
+		_localTimeSyncer = std::make_unique<LocalTimeSyncer>(
+			time,
+			&_external->lib(),
+			[=] { _localTimeSyncer = nullptr; });
+	}
 }
 
 } // namespace Ton

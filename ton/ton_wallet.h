@@ -24,6 +24,8 @@ class PasswordChanger;
 class AccountViewers;
 class TLinputKey;
 class WebLoader;
+class LocalTimeSyncer;
+struct BlockchainTime;
 } // namespace details
 
 struct Settings;
@@ -97,6 +99,7 @@ private:
 		const QByteArray &publicKey,
 		const QByteArray &password) const;
 	[[nodiscard]] Fn<void(Update)> generateUpdatesCallback();
+	void checkLocalTime(details::BlockchainTime time);
 
 	std::optional<int64> _walletId;
 	rpl::event_stream<Update> _updates;
@@ -108,9 +111,12 @@ private:
 	std::unique_ptr<details::KeyCreator> _keyCreator;
 	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
 	std::unique_ptr<details::PasswordChanger> _passwordChanger;
+	std::unique_ptr<details::LocalTimeSyncer> _localTimeSyncer;
 
 	std::vector<QByteArray> _publicKeys;
 	std::vector<QByteArray> _secrets;
+
+	rpl::lifetime _lifetime;
 
 };
 

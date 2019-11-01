@@ -6,6 +6,8 @@
 //
 #include "ton/details/ton_parse_state.h"
 
+#include "base/unixtime.h"
+
 #include <QtCore/QDateTime>
 
 namespace Ton::details {
@@ -18,7 +20,7 @@ namespace {
 		const QByteArray &bodyHash) {
 	auto result = PendingTransaction();
 	result.sentUntilSyncTime = sentUntilSyncTime;
-	result.fake.time = QDateTime::currentDateTime().toTime_t();
+	result.fake.time = base::unixtime::now();
 	result.fake.incoming.bodyHash = bodyHash;
 	result.fake.incoming.destination = sender;
 	auto &outgoing = result.fake.outgoing.emplace_back();

@@ -47,6 +47,10 @@ AccountViewers::~AccountViewers() {
 	}
 }
 
+rpl::producer<BlockchainTime> AccountViewers::blockchainTime() const {
+	return _blockchainTime.events();
+}
+
 AccountViewers::Viewers *AccountViewers::findRefreshingViewers(
 		const QString &address) {
 	const auto i = _map.find(address);
@@ -133,6 +137,7 @@ void AccountViewers::checkPendingForSameState(
 void AccountViewers::refreshAccount(
 		const QString &address,
 		Viewers &viewers) {
+	const auto requested = crl::now();
 	viewers.refreshing = true;
 	_owner->requestState(address, [=](Result<AccountState> result) {
 		const auto viewers = findRefreshingViewers(address);
@@ -140,6 +145,9 @@ void AccountViewers::refreshAccount(
 			return;
 		}
 		const auto &state = *result;
+		if (LocalTimeSyncer::IsRequestFastEnough(requested, crl::now())) {
+			_blockchainTime.fire({ requested, TimeId(state.syncTime) });
+		}
 		if (state == viewers->state.current().account) {
 			checkPendingForSameState(address, *viewers, state);
 			return;

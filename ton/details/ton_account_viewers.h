@@ -8,6 +8,7 @@
 
 #include "ton/ton_state.h"
 #include "ton/ton_result.h"
+#include "ton/details/ton_local_time_syncer.h"
 #include "base/weak_ptr.h"
 #include "base/timer.h"
 
@@ -36,6 +37,8 @@ public:
 	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
 		const QString &address);
 	void addPendingTransaction(const PendingTransaction &pending);
+
+	[[nodiscard]] rpl::producer<BlockchainTime> blockchainTime() const;
 
 private:
 	struct Viewers {
@@ -77,6 +80,8 @@ private:
 	base::flat_map<QString, Viewers> _map;
 
 	base::Timer _refreshTimer;
+
+	rpl::event_stream<BlockchainTime> _blockchainTime;
 
 };
 
