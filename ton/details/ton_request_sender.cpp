@@ -151,4 +151,8 @@ RequestSender::RequestSender(Fn<void(const TLUpdate &)> updateCallback)
 : _client(ConvertUpdateCallback(std::move(updateCallback))) {
 }
 
+rpl::producer<RequestId> RequestSender::resendingOnError() const {
+	return _client.resendingOnError();
+}
+
 } // namespace Ton::details

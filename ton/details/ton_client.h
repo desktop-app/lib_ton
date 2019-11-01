@@ -34,6 +34,8 @@ public:
 		FnMut<bool(LibResponse)> handler);
 	void cancel(RequestId requestId);
 
+	[[nodiscard]] rpl::producer<RequestId> resendingOnError() const;
+
 	static LibResponse Execute(LibRequest request);
 
 private:
@@ -57,6 +59,7 @@ private:
 	// Accessed from main thread only.
 	base::flat_map<RequestId, crl::time> _requestResendDelays;
 	base::DelayedCallTimer _resendTimer;
+	rpl::event_stream<RequestId> _resendingOnError;
 
 };
 

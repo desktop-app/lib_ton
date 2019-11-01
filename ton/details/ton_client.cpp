@@ -83,10 +83,15 @@ void Client::cancel(RequestId requestId) {
 	_handlers.remove(requestId);
 }
 
+rpl::producer<RequestId> Client::resendingOnError() const {
+	return _resendingOnError.events();
+}
+
 void Client::scheduleResendOnError(RequestId requestId) {
 	crl::on_main(this, [=] {
 		const auto delay = _requestResendDelays.take(requestId).value_or(0);
 		const auto nextDelay = NextRequestResendDelay(delay);
+		_resendingOnError.fire_copy(requestId);
 		_requestResendDelays.emplace(requestId, nextDelay);
 		_resendTimer.call(nextDelay, [=] {
 			resend(requestId);

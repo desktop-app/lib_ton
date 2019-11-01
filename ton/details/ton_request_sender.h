@@ -160,6 +160,8 @@ public:
 		&& std::is_class_v<typename Request::Unboxed>>>
 	static Result<typename Request::ResponseType> Execute(Request &&request);
 
+	[[nodiscard]] rpl::producer<RequestId> resendingOnError() const;
+
 private:
 	template <typename Request>
 	friend class SpecialRequestBuilder;

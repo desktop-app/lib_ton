@@ -27,6 +27,7 @@ namespace {
 constexpr auto kSaltSize = size_type(32);
 constexpr auto kIterations = 100'000;
 constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
+constexpr auto kErrorsTillSetConfig = 3;
 
 [[nodiscard]] QString SubPath(const QString &basePath, const QString &name) {
 	Expects(basePath.endsWith('/'));
@@ -169,6 +170,12 @@ void External::updateSettings(
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
+}
+
+void External::resetNetwork() {
+	Expects(_state == State::Opened);
+
+	updateSettings(_settings, nullptr);
 }
 
 RequestSender &External::lib() {
@@ -320,6 +327,14 @@ void External::start(Callback<int64> done) {
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(false))
 	)).done([=] {
+		_lib.resendingOnError(
+		) | rpl::start_with_next([=] {
+			if (++_failedRequestsSinceSetConfig >= kErrorsTillSetConfig) {
+				_failedRequestsSinceSetConfig = 0;
+				resetNetwork();
+			}
+		}, _lifetime);
+
 		const auto result = WalletId(config);
 		Assert(result.has_value());
 		InvokeCallback(done, result);

@@ -58,6 +58,7 @@ private:
 		const QByteArray &globalPassword,
 		Callback<Settings> done);
 	void startLibrary(Callback<> done);
+	void resetNetwork();
 
 	const QString _basePath;
 	const Fn<void(Update)> _updateCallback;
@@ -67,6 +68,9 @@ private:
 
 	State _state = State::Initial;
 	bytes::vector _salt;
+
+	int _failedRequestsSinceSetConfig = 0;
+	rpl::lifetime _lifetime;
 
 };
 
