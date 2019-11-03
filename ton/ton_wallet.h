@@ -77,6 +77,7 @@ public:
 		Callback<PendingTransaction> ready,
 		Callback<> done);
 
+	static void EnableLogging(bool enabled, const QString &basePath);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
 	[[nodiscard]] static base::flat_set<QString> GetValidWords();
 	[[nodiscard]] static Result<> CheckConfig(const QByteArray &config);

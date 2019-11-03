@@ -42,6 +42,7 @@ public:
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Storage::Cache::Database &db();
 
+	static void EnableLogging(bool enabled, const QString &basePath);
 	[[nodiscard]] static Result<int64> WalletId(const QByteArray &config);
 
 private:

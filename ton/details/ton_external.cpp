@@ -186,6 +186,18 @@ Storage::Cache::Database &External::db() {
 	return *_db;
 }
 
+void External::EnableLogging(bool enabled, const QString &basePath) {
+	if (enabled) {
+		RequestSender::Execute(TLSetLogStream(
+			tl_logStreamFile(
+				tl_string(TonLibLogPath(basePath)),
+				tl_int53(kMaxTonLibLogSize))));
+		RequestSender::Execute(TLSetLogVerbosityLevel(tl_int32(10)));
+	} else {
+		RequestSender::Execute(TLSetLogStream(tl_logStreamEmpty()));
+	}
+}
+
 Result<int64> External::WalletId(const QByteArray &config) {
 	// We want to check only validity of config,
 	// not validity in one specific blockchain_name.
@@ -294,17 +306,6 @@ void External::startLibrary(Callback<> done) {
 		InvokeCallback(done, Error{ Error::Type::IO, path });
 		return;
 	}
-
-#ifdef _DEBUG
-	RequestSender::Execute(TLSetLogStream(
-		tl_logStreamFile(
-			tl_string(TonLibLogPath(_basePath)),
-			tl_int53(kMaxTonLibLogSize))));
-	RequestSender::Execute(TLSetLogVerbosityLevel(tl_int32(10)));
-#else // _DEBUG
-	RequestSender::Execute(TLSetLogStream(
-		tl_logStreamEmpty()));
-#endif // _DEBUG
 
 	_lib.request(TLInit(
 		tl_options(
