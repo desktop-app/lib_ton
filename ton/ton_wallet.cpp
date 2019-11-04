@@ -345,7 +345,7 @@ void Wallet::checkSendGrams(
 		const QByteArray &publicKey,
 		const TransactionToSend &transaction,
 		Callback<TransactionCheckResult> done) {
-	Expects(transaction.amount > 0);
+	Expects(transaction.amount >= 0);
 
 	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
@@ -390,7 +390,7 @@ void Wallet::sendGrams(
 		const TransactionToSend &transaction,
 		Callback<PendingTransaction> ready,
 		Callback<> done) {
-	Expects(transaction.amount > 0);
+	Expects(transaction.amount >= 0);
 
 	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
