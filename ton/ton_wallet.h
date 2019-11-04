@@ -78,6 +78,7 @@ public:
 		Callback<> done);
 
 	static void EnableLogging(bool enabled, const QString &basePath);
+	static void LogMessage(const QString &message);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
 	[[nodiscard]] static base::flat_set<QString> GetValidWords();
 	[[nodiscard]] static Result<> CheckConfig(const QByteArray &config);

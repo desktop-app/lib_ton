@@ -43,6 +43,7 @@ public:
 	[[nodiscard]] Storage::Cache::Database &db();
 
 	static void EnableLogging(bool enabled, const QString &basePath);
+	static void LogMessage(const QString &message);
 	[[nodiscard]] static Result<int64> WalletId(const QByteArray &config);
 
 private:

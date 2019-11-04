@@ -57,6 +57,10 @@ void Wallet::EnableLogging(bool enabled, const QString &basePath) {
 	External::EnableLogging(enabled, basePath);
 }
 
+void Wallet::LogMessage(const QString &message) {
+	return External::LogMessage(message);
+}
+
 bool Wallet::CheckAddress(const QString &address) {
 	return RequestSender::Execute(TLUnpackAccountAddress(
 		tl_string(address)

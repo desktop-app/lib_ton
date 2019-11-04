@@ -28,6 +28,9 @@ constexpr auto kSaltSize = size_type(32);
 constexpr auto kIterations = 100'000;
 constexpr auto kMaxTonLibLogSize = 50 * 1024 * 1024;
 constexpr auto kErrorsTillSetConfig = 3;
+constexpr auto kDebugVerbosity = 10;
+
+std::atomic<bool> LoggingEnabled = false;
 
 [[nodiscard]] QString SubPath(const QString &basePath, const QString &name) {
 	Expects(basePath.endsWith('/'));
@@ -187,15 +190,26 @@ Storage::Cache::Database &External::db() {
 }
 
 void External::EnableLogging(bool enabled, const QString &basePath) {
+	LoggingEnabled = enabled;
 	if (enabled) {
 		RequestSender::Execute(TLSetLogStream(
 			tl_logStreamFile(
 				tl_string(TonLibLogPath(basePath)),
 				tl_int53(kMaxTonLibLogSize))));
-		RequestSender::Execute(TLSetLogVerbosityLevel(tl_int32(10)));
+		RequestSender::Execute(TLSetLogVerbosityLevel(
+			tl_int32(kDebugVerbosity)));
 	} else {
 		RequestSender::Execute(TLSetLogStream(tl_logStreamEmpty()));
 	}
+}
+
+void External::LogMessage(const QString &message) {
+	if (!LoggingEnabled) {
+		return;
+	}
+	RequestSender::Execute(TLAddLogMessage(
+		tl_int32(kDebugVerbosity),
+		tl_string(message)));
 }
 
 Result<int64> External::WalletId(const QByteArray &config) {
