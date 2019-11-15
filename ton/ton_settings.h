@@ -14,6 +14,7 @@ struct Settings {
 	QByteArray config;
 	bool useCustomConfig = false;
 	bool useNetworkCallbacks = false;
+	qint32 version = 0;
 };
 
 } // namespace Ton

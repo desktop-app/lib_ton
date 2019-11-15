@@ -247,12 +247,13 @@ WalletState Deserialize(const TLstorage_WalletState &data) {
 }
 
 TLstorage_Settings Serialize(const Settings &data) {
-	return make_storage_settings(
+	return make_storage_settings2(
 		tl_string(data.blockchainName),
 		tl_string(data.configUrl),
 		tl_string(data.config),
 		Serialize(data.useCustomConfig),
-		Serialize(data.useNetworkCallbacks));
+		Serialize(data.useNetworkCallbacks),
+		tl_int32(data.version));
 }
 
 Settings Deserialize(const TLstorage_Settings &data) {
@@ -263,7 +264,17 @@ Settings Deserialize(const TLstorage_Settings &data) {
 			tl::utf16(data.vconfigUrl()),
 			tl::utf8(data.vconfig()),
 			Deserialize(data.vuseCustomConfig()),
-			Deserialize(data.vuseNetworkCallbacks())
+			Deserialize(data.vuseNetworkCallbacks()),
+			0
+		};
+	}, [&](const TLDstorage_settings2 &data) {
+		return Settings{
+			tl::utf16(data.vblockchainName()),
+			tl::utf16(data.vconfigUrl()),
+			tl::utf8(data.vconfig()),
+			Deserialize(data.vuseCustomConfig()),
+			Deserialize(data.vuseNetworkCallbacks()),
+			data.vversion().v
 		};
 	});
 	return result;

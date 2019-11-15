@@ -12,3 +12,4 @@ storage.pendingTransaction fake:storage.Transaction sentUntilSyncTime:int64 = st
 storage.walletState address:string account:storage.AccountState lastTransactions:storage.TransactionsSlice pendingTransactions:vector<storage.PendingTransaction> = storage.WalletState;
 
 storage.settings blockchainName:string configUrl:string config:string useCustomConfig:storage.Bool useNetworkCallbacks:storage.Bool = storage.Settings;
+storage.settings2 blockchainName:string configUrl:string config:string useCustomConfig:storage.Bool useNetworkCallbacks:storage.Bool version:int32 = storage.Settings;
