@@ -6,6 +6,8 @@
 //
 #pragma once
 
+#include "ton/ton_settings.h"
+
 namespace Ton {
 
 inline constexpr auto kUnknownBalance = int64(-666);
@@ -140,7 +142,7 @@ struct LiteServerQuery {
 };
 
 struct Update {
-	base::variant<SyncState, LiteServerQuery> data;
+	base::variant<SyncState, LiteServerQuery, ConfigUpgrade> data;
 };
 
 } // namespace Ton

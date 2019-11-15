@@ -61,12 +61,14 @@ private:
 		Callback<Settings> done);
 	void startLibrary(Callback<> done);
 	void resetNetwork();
+	void applyLocalSettings(const Settings &localSettings);
 
 	const QString _basePath;
 	const Fn<void(Update)> _updateCallback;
 	Settings _settings;
 	RequestSender _lib;
 	Storage::DatabasePointer _db;
+	ConfigUpgrade _configUpgrade = ConfigUpgrade::None;
 
 	State _state = State::Initial;
 	bytes::vector _salt;

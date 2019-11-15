@@ -17,4 +17,9 @@ struct Settings {
 	qint32 version = 0;
 };
 
+enum class ConfigUpgrade {
+	None,
+	TestnetToTestnet2,
+};
+
 } // namespace Ton

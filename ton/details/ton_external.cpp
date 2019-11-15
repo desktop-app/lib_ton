@@ -118,7 +118,7 @@ void External::open(
 			return;
 		}
 		if (!result->config.isEmpty()) {
-			_settings = *result;
+			applyLocalSettings(*result);
 		}
 		const auto future = std::make_shared<std::optional<WalletList>>();
 		LoadWalletList(_db.get(), crl::guard(this, [=](WalletList &&list) {
@@ -136,10 +136,26 @@ void External::open(
 			}
 			_state = State::Opened;
 			if (*future) {
+				if (_configUpgrade != ConfigUpgrade::None) {
+					updateSettings(_settings, nullptr);
+					if (_updateCallback) {
+						_updateCallback({ _configUpgrade });
+					}
+				}
 				InvokeCallback(done, std::move(**future));
 			}
 		});
 	});
+}
+
+void External::applyLocalSettings(const Settings &localSettings) {
+	if (localSettings.version == 0
+		&& _settings.version == 2
+		&& _settings.blockchainName == "testnet2") {
+		_configUpgrade = ConfigUpgrade::TestnetToTestnet2;
+	} else {
+		_settings = localSettings;
+	}
 }
 
 const Settings &External::settings() const {
