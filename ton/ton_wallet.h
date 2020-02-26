@@ -42,6 +42,7 @@ public:
 		Callback<> done);
 	void start(Callback<> done);
 	[[nodiscard]] QString getAddress(const QByteArray &publicKey) const;
+	void checkConfig(const QByteArray &config, Callback<> done);
 
 	[[nodiscard]] const Settings &settings() const;
 	void updateSettings(const Settings &settings, Callback<> done);
@@ -81,7 +82,6 @@ public:
 	static void LogMessage(const QString &message);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
 	[[nodiscard]] static base::flat_set<QString> GetValidWords();
-	[[nodiscard]] static Result<> CheckConfig(const QByteArray &config);
 
 	void requestState(const QString &address, Callback<AccountState> done);
 	void requestTransactions(

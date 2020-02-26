@@ -84,11 +84,6 @@ base::flat_set<QString> Wallet::GetValidWords() {
 	});
 }
 
-Result<> Wallet::CheckConfig(const QByteArray &config) {
-	const auto walletId = External::WalletId(config);
-	return walletId ? Result<>() : walletId.error();
-}
-
 void Wallet::open(
 		const QByteArray &globalPassword,
 		const Settings &defaultSettings,
@@ -147,6 +142,23 @@ void Wallet::updateSettings(const Settings &settings, Callback<> done) {
 		_walletId = *result;
 		InvokeCallback(done);
 	});
+}
+
+void Wallet::checkConfig(const QByteArray &config, Callback<> done) {
+	// We want to check only validity of config,
+	// not validity in one specific blockchain_name.
+	// So we pass an empty blockchain name.
+	_external->lib().request(TLoptions_ValidateConfig(
+		tl_config(
+			tl_string(config),
+			tl_string(QString()),
+			tl_from(false),
+			tl_from(false))
+	)).done([=] {
+		InvokeCallback(done);
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
 }
 
 rpl::producer<Update> Wallet::updates() const {

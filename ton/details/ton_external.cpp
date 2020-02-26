@@ -176,14 +176,13 @@ void External::updateSettings(
 			tl_string(_settings.blockchainName),
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(clear))
-	)).done([=] {
+	)).done([=](const TLoptions_ConfigInfo &result) {
+		const auto walletId = WalletId(result);
 		const auto saved = [=](Result<> result) {
 			if (!result) {
 				InvokeCallback(done, result.error());
 			}
-			const auto walletId = WalletId(config);
-			Assert(walletId.has_value());
-			InvokeCallback(done, *walletId);
+			InvokeCallback(done, walletId);
 		};
 		SaveSettings(_db.get(), settings, crl::guard(this, saved));
 	}).fail([=](const TLError &error) {
@@ -228,20 +227,8 @@ void External::LogMessage(const QString &message) {
 		tl_string(message)));
 }
 
-Result<int64> External::WalletId(const QByteArray &config) {
-	// We want to check only validity of config,
-	// not validity in one specific blockchain_name.
-	// So we pass an empty blockchain name.
-	const auto result = RequestSender::Execute(TLoptions_ValidateConfig(
-		tl_config(
-			tl_string(config),
-			tl_string(QString()),
-			tl_from(false),
-			tl_from(false))));
-	if (!result) {
-		return result.error();
-	}
-	return result->match([&](const TLDoptions_configInfo &data) {
+int64 External::WalletId(const TLoptions_ConfigInfo &data) {
+	return data.match([](const TLDoptions_configInfo &data) {
 		return data.vdefault_wallet_id().v;
 	});
 }
@@ -357,7 +344,7 @@ void External::start(Callback<int64> done) {
 			tl_string(_settings.blockchainName),
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(false))
-	)).done([=] {
+	)).done([=](const TLoptions_ConfigInfo &result) {
 		_lib.resendingOnError(
 		) | rpl::start_with_next([=] {
 			if (++_failedRequestsSinceSetConfig >= kErrorsTillSetConfig) {
@@ -366,9 +353,7 @@ void External::start(Callback<int64> done) {
 			}
 		}, _lifetime);
 
-		const auto result = WalletId(config);
-		Assert(result.has_value());
-		InvokeCallback(done, result);
+		InvokeCallback(done, WalletId(result));
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();

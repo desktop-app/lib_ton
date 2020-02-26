@@ -44,7 +44,7 @@ public:
 
 	static void EnableLogging(bool enabled, const QString &basePath);
 	static void LogMessage(const QString &message);
-	[[nodiscard]] static Result<int64> WalletId(const QByteArray &config);
+	[[nodiscard]] static int64 WalletId(const TLoptions_ConfigInfo &data);
 
 private:
 	enum class State {
