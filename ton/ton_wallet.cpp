@@ -32,6 +32,8 @@ namespace {
 
 using namespace details;
 
+constexpr auto kSmcRevision = 1;
+
 } // namespace
 
 Wallet::Wallet(const QString &path)
@@ -117,10 +119,11 @@ void Wallet::start(Callback<> done) {
 QString Wallet::getAddress(const QByteArray &publicKey) const {
 	Expects(_walletId.has_value());
 
-	return RequestSender::Execute(TLwallet_v3_GetAccountAddress(
+	return RequestSender::Execute(TLGetAccountAddress(
 		tl_wallet_v3_initialAccountState(
 			tl_string(publicKey),
-			tl_int53(*_walletId))
+			tl_int53(*_walletId)),
+		tl_int32(kSmcRevision)
 	)).value_or(
 		tl_accountAddress(tl_string())
 	).match([&](const TLDaccountAddress &data) {
@@ -367,14 +370,16 @@ void Wallet::checkSendGrams(
 			InvokeCallback(done, ErrorFromLib(error));
 		}).send();
 	};
-	_external->lib().request(TLgeneric_CreateSendGramsQuery(
+	_external->lib().request(TLCreateQuery(
 		tl_inputKeyFake(),
 		tl_accountAddress(tl_string(sender)),
-		tl_accountAddress(tl_string(transaction.recipient)),
-		tl_int64(transaction.amount),
 		tl_int32(transaction.timeout),
-		tl_from(transaction.allowSendToUninited),
-		tl_string(transaction.comment)
+		tl_actionMsg(
+			tl_vector(1, tl_msg_message(
+				tl_accountAddress(tl_string(transaction.recipient)),
+				tl_int64(transaction.amount),
+				tl_msg_dataText(tl_string(transaction.comment)))),
+			tl_from(transaction.allowSendToUninited))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			check(data.vid().v);
@@ -405,14 +410,16 @@ void Wallet::sendGrams(
 		}).send();
 	};
 
-	_external->lib().request(TLgeneric_CreateSendGramsQuery(
+	_external->lib().request(TLCreateQuery(
 		prepareInputKey(publicKey, password),
 		tl_accountAddress(tl_string(sender)),
-		tl_accountAddress(tl_string(transaction.recipient)),
-		tl_int64(transaction.amount),
 		tl_int32(transaction.timeout),
-		tl_from(transaction.allowSendToUninited),
-		tl_string(transaction.comment)
+		tl_actionMsg(
+			tl_vector(1, tl_msg_message(
+				tl_accountAddress(tl_string(transaction.recipient)),
+				tl_int64(transaction.amount),
+				tl_msg_dataText(tl_string(transaction.comment)))),
+			tl_from(transaction.allowSendToUninited))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			const auto weak = base::make_weak(this);
@@ -435,23 +442,12 @@ void Wallet::sendGrams(
 void Wallet::requestState(
 		const QString &address,
 		Callback<AccountState> done) {
-	_external->lib().request(TLgeneric_GetAccountState(
+	_external->lib().request(TLGetAccountState(
 		tl_accountAddress(tl_string(address))
-	)).done([=](const TLgeneric_AccountState &result) {
+	)).done([=](const TLFullAccountState &result) {
 		const auto finish = [&](auto &&value) {
-			InvokeCallback(done, std::move(value));
 		};
-		result.match([&](const TLDgeneric_accountStateTestGiver &data) {
-			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_TEST_GIVER" });
-		}, [&](const TLDgeneric_accountStateTestWallet &data) {
-			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_TEST_WALLET" });
-		}, [&](const TLDgeneric_accountStateRaw &data) {
-			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_RAW" });
-		}, [&](const TLDgeneric_accountStateWallet &data) {
-			finish(Error{ Error::Type::TonLib, "BAD_ADDRESS_SIMPLE" });
-		}, [&](const auto &data) {
-			finish(Parse(data.vaccount_state()));
-		});
+		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
@@ -462,6 +458,7 @@ void Wallet::requestTransactions(
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done) {
 	_external->lib().request(TLraw_GetTransactions(
+		tl_inputKeyFake(),
 		tl_accountAddress(tl_string(address)),
 		tl_internal_transactionId(tl_int64(lastId.lt), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {

@@ -42,18 +42,8 @@ TransactionId Parse(const TLinternal_TransactionId &data) {
 	});
 }
 
-AccountState Parse(const TLwallet_v3_AccountState &data) {
-	return data.match([&](const TLDwallet_v3_accountState &data) {
-		auto result = AccountState();
-		result.balance = data.vbalance().v;
-		result.lastTransactionId = Parse(data.vlast_transaction_id());
-		result.syncTime = data.vsync_utime().v;
-		return result;
-	});
-}
-
-AccountState Parse(const TLuninited_AccountState &data) {
-	return data.match([&](const TLDuninited_accountState &data) {
+AccountState Parse(const TLFullAccountState &data) {
+	return data.match([&](const TLDfullAccountState &data) {
 		auto result = AccountState();
 		result.balance = data.vbalance().v;
 		result.lastTransactionId = Parse(data.vlast_transaction_id());
@@ -107,19 +97,6 @@ TransactionsSlice Parse(const TLraw_Transactions &data) {
 }
 
 PendingTransaction Parse(
-		const TLSendGramsResult &data,
-		const QString &sender,
-		const TransactionToSend &transaction) {
-	return data.match([&](const TLDsendGramsResult &data) {
-		return PreparePending(
-			sender,
-			transaction,
-			data.vsent_until().v,
-			data.vbody_hash().v);
-	});
-}
-
-PendingTransaction Parse(
 		const TLquery_Info &data,
 		const QString &sender,
 		const TransactionToSend &transaction) {
@@ -147,7 +124,11 @@ TransactionCheckResult Parse(const TLquery_Fees &data) {
 	return data.match([&](const TLDquery_fees &data) {
 		auto result = TransactionCheckResult();
 		result.sourceFees = Parse(data.vsource_fees());
-		result.destinationFees = Parse(data.vdestination_fees());
+		result.destinationFees = ranges::view::all(
+			data.vdestination_fees().v
+		) | ranges::view::transform([](const TLFees &data) {
+			return Parse(data);
+		}) | ranges::to_vector;
 		return result;
 	});
 }

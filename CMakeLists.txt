@@ -16,6 +16,11 @@ get_filename_component(src_loc . REALPATH)
 generate_ton_tl(lib_ton ${src_loc}/ton/details/ton_tl_generate.py ${libs_loc}/ton/tl/generate/scheme/tonlib_api.tl)
 generate_ton_storage_tl(lib_ton ${src_loc}/ton/details/ton_storage_tl_generate.py ${src_loc}/ton/details/ton_storage.tl)
 
+nice_target_sources(lib_ton ${libs_loc}/ton/tl/generate
+PRIVATE
+    scheme/tonlib_api.tl
+)
+
 target_precompile_headers(lib_ton PRIVATE ${src_loc}/ton/details/ton_pch.h)
 nice_target_sources(lib_ton ${src_loc}
 PRIVATE
@@ -39,6 +44,7 @@ PRIVATE
     ton/details/ton_request_sender.h
     ton/details/ton_storage.cpp
     ton/details/ton_storage.h
+    ton/details/ton_storage.tl
     ton/details/ton_tl_core.h
     ton/details/ton_tl_core_conversion.cpp
     ton/details/ton_tl_core_conversion.h

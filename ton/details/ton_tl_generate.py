@@ -30,6 +30,8 @@ generate({
   'skip': [
     'double ? = Double;',
     'string ? = String;',
+    'object ? = Object;',
+    'function ? = Function;',
 
     'int32 = Int32;',
     'int53 = Int53;',
@@ -39,6 +41,7 @@ generate({
     'secureBytes = SecureBytes;',
 
     'vector {t:Type} # [ t ] = Vector t;',
+    'withBlock id:ton.blockIdExt function:Function = Object;',
   ],
   'builtin': [
     'double',

@@ -12,14 +12,9 @@
 namespace Ton::details {
 
 [[nodiscard]] TransactionId Parse(const TLinternal_TransactionId &data);
-[[nodiscard]] AccountState Parse(const TLwallet_v3_AccountState &data);
-[[nodiscard]] AccountState Parse(const TLuninited_AccountState &data);
+[[nodiscard]] AccountState Parse(const TLFullAccountState &data);
 [[nodiscard]] Transaction Parse(const TLraw_Transaction &data);
 [[nodiscard]] TransactionsSlice Parse(const TLraw_Transactions &data);
-[[nodiscard]] PendingTransaction Parse(
-	const TLSendGramsResult &data,
-	const QString &sender,
-	const TransactionToSend &transaction);
 [[nodiscard]] PendingTransaction Parse(
 	const TLquery_Info &data,
 	const QString &sender,

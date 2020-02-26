@@ -89,7 +89,7 @@ struct TransactionFees {
 
 struct TransactionCheckResult {
 	TransactionFees sourceFees;
-	TransactionFees destinationFees;
+	std::vector<TransactionFees> destinationFees;
 };
 
 struct PendingTransaction {
