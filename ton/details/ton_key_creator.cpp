@@ -10,6 +10,7 @@
 #include "ton/details/ton_parse_state.h"
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_storage.h"
+#include "base/openssl_help.h"
 
 namespace Ton::details {
 namespace {
