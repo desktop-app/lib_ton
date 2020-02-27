@@ -169,6 +169,7 @@ void AccountViewers::refreshAccount(
 			}, RefreshSource::Remote);
 		};
 		_owner->requestTransactions(
+			viewers->publicKey,
 			address,
 			state.lastTransactionId,
 			received);
@@ -227,10 +228,11 @@ void AccountViewers::refreshFromDatabase(
 }
 
 std::unique_ptr<AccountViewer> AccountViewers::createAccountViewer(
+		const QByteArray &publicKey,
 		const QString &address) {
 	const auto i = _map.emplace(
 		address,
-		Viewers{ WalletState{ address } }
+		Viewers{ publicKey, WalletState{ address } }
 	).first;
 
 	auto &viewers = i->second;
@@ -243,6 +245,7 @@ std::unique_ptr<AccountViewer> AccountViewers::createAccountViewer(
 	});
 	auto result = std::make_unique<AccountViewer>(
 		_owner,
+		publicKey,
 		address,
 		std::move(state));
 	const auto raw = result.get();

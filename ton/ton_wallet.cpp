@@ -84,6 +84,10 @@ base::flat_set<QString> Wallet::GetValidWords() {
 	});
 }
 
+bool Wallet::IsIncorrectPasswordError(const Error &error) {
+	return error.details.startsWith(qstr("KEY_DECRYPT"));
+}
+
 void Wallet::open(
 		const QByteArray &globalPassword,
 		const Settings &defaultSettings,
@@ -281,7 +285,7 @@ void Wallet::deleteKey(
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
 	Expects(_passwordChanger == nullptr);
-	Expects(ranges::find(_publicKeys, publicKey) != end(_publicKeys));
+	Expects(ranges::contains(_publicKeys, publicKey));
 
 	auto list = collectWalletList();
 	const auto index = ranges::find(
@@ -298,6 +302,8 @@ void Wallet::deleteKey(
 		}
 		_publicKeys.erase(begin(_publicKeys) + index);
 		_secrets.erase(begin(_secrets) + index);
+		_viewersPasswords.erase(publicKey);
+		_viewersPasswordsWaiters.erase(publicKey);
 		InvokeCallback(done, result);
 	};
 	_keyDestroyer = std::make_unique<KeyDestroyer>(
@@ -321,6 +327,8 @@ void Wallet::deleteAllKeys(Callback<> done) {
 		}
 		_publicKeys.clear();
 		_secrets.clear();
+		_viewersPasswords.clear();
+		_viewersPasswordsWaiters.clear();
 		InvokeCallback(done, result);
 	};
 	_keyDestroyer = std::make_unique<KeyDestroyer>(
@@ -345,6 +353,9 @@ void Wallet::changePassword(
 			return;
 		}
 		_secrets = std::move(*result);
+		for (auto &[publicKey, password] : _viewersPasswords) {
+			updateViewersPassword(publicKey, newPassword);
+		}
 		InvokeCallback(done);
 	};
 	_passwordChanger = std::make_unique<PasswordChanger>(
@@ -430,7 +441,7 @@ void Wallet::sendGrams(
 			tl_vector(1, tl_msg_message(
 				tl_accountAddress(tl_string(transaction.recipient)),
 				tl_int64(transaction.amount),
-				tl_msg_dataText(tl_string(transaction.comment)))),
+				tl_msg_dataEncryptedText(tl_string(transaction.comment)))),
 			tl_from(transaction.allowSendToUninited))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
@@ -466,23 +477,59 @@ void Wallet::requestState(
 }
 
 void Wallet::requestTransactions(
+		const QByteArray &publicKey,
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done) {
+	const auto password = _viewersPasswords[publicKey];
+	const auto generation = password.generation;
 	_external->lib().request(TLraw_GetTransactions(
-		tl_inputKeyFake(),
+		prepareInputKey(publicKey, password.bytes),
 		tl_accountAddress(tl_string(address)),
 		tl_internal_transactionId(tl_int64(lastId.lt), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {
+		_updates.fire({ DecryptPasswordGood{ generation } });
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
-		InvokeCallback(done, ErrorFromLib(error));
+		const auto parsed = ErrorFromLib(error);
+		if (IsIncorrectPasswordError(parsed)
+			&& ranges::contains(_publicKeys, publicKey)) {
+			const auto resend = [=] {
+				requestTransactions(publicKey, address, lastId, done);
+			};
+			if (_viewersPasswords[publicKey].generation == generation) {
+				_viewersPasswordsWaiters[publicKey].emplace_back(resend);
+				_updates.fire({ DecryptPasswordNeeded{
+					publicKey,
+					generation
+				} });
+			} else {
+				resend();
+			}
+		} else {
+			_updates.fire({ DecryptPasswordGood{ generation } });
+			InvokeCallback(done, parsed);
+		}
 	}).send();
 }
 
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
+		const QByteArray &publicKey,
 		const QString &address) {
-	return _accountViewers->createAccountViewer(address);
+	return _accountViewers->createAccountViewer(publicKey, address);
+}
+
+void Wallet::updateViewersPassword(
+		const QByteArray &publicKey,
+		const QByteArray &password) {
+	auto &data = _viewersPasswords[publicKey];
+	data.bytes = password;
+	++data.generation;
+	if (const auto list = _viewersPasswordsWaiters.take(publicKey)) {
+		for (const auto &callback : *list) {
+			callback();
+		}
+	}
 }
 
 void Wallet::loadWebResource(const QString &url, Callback<QByteArray> done) {

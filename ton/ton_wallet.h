@@ -82,19 +82,30 @@ public:
 	static void LogMessage(const QString &message);
 	[[nodiscard]] static bool CheckAddress(const QString &address);
 	[[nodiscard]] static base::flat_set<QString> GetValidWords();
+	[[nodiscard]] static bool IsIncorrectPasswordError(const Error &error);
 
+	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
+		const QByteArray &publicKey,
+		const QString &address);
+	void updateViewersPassword(
+		const QByteArray &publicKey,
+		const QByteArray &password);
+
+	void loadWebResource(const QString &url, Callback<QByteArray> done);
+
+	// Internal API.
 	void requestState(const QString &address, Callback<AccountState> done);
 	void requestTransactions(
+		const QByteArray &publicKey,
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done);
 
-	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
-		const QString &address);
-
-	void loadWebResource(const QString &url, Callback<QByteArray> done);
-
 private:
+	struct ViewersPassword {
+		QByteArray bytes;
+		int generation = 1;
+	};
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
 	[[nodiscard]] details::TLinputKey prepareInputKey(
@@ -117,6 +128,10 @@ private:
 
 	std::vector<QByteArray> _publicKeys;
 	std::vector<QByteArray> _secrets;
+	base::flat_map<QByteArray, ViewersPassword> _viewersPasswords;
+	base::flat_map<
+		QByteArray,
+		std::vector<Fn<void()>>> _viewersPasswordsWaiters;
 
 	rpl::lifetime _lifetime;
 

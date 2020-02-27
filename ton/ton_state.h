@@ -141,8 +141,22 @@ struct LiteServerQuery {
 	QByteArray bytes;
 };
 
+struct DecryptPasswordNeeded {
+	QByteArray publicKey;
+	int generation = 0;
+};
+
+struct DecryptPasswordGood {
+	int generation = 0;
+};
+
 struct Update {
-	base::variant<SyncState, LiteServerQuery, ConfigUpgrade> data;
+	base::variant<
+		SyncState,
+		LiteServerQuery,
+		ConfigUpgrade,
+		DecryptPasswordNeeded,
+		DecryptPasswordGood> data;
 };
 
 } // namespace Ton

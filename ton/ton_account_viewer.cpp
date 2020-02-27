@@ -18,9 +18,11 @@ constexpr auto kDefaultRefreshEach = 60 * crl::time(1000);
 
 AccountViewer::AccountViewer(
 	not_null<Wallet*> wallet,
+	const QByteArray &publicKey,
 	const QString &address,
 	rpl::producer<WalletViewerState> state)
 : _wallet(wallet)
+, _publicKey(publicKey)
 , _address(address)
 , _state(std::move(state))
 , _refreshEach(kDefaultRefreshEach) {
@@ -67,7 +69,11 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 		_preloadIds.remove(lastId);
 		_loadedResults.fire(LoadedSlice{ lastId, std::move(*result) });
 	};
-	_wallet->requestTransactions(_address, lastId, crl::guard(this, done));
+	_wallet->requestTransactions(
+		_publicKey,
+		_address,
+		lastId,
+		crl::guard(this, done));
 }
 
 } // namespace Ton

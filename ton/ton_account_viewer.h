@@ -20,6 +20,7 @@ class AccountViewer final : public base::has_weak_ptr {
 public:
 	AccountViewer(
 		not_null<Wallet*> wallet,
+		const QByteArray &publicKey,
 		const QString &address,
 		rpl::producer<WalletViewerState> state);
 
@@ -36,6 +37,7 @@ public:
 
 private:
 	const not_null<Wallet*> _wallet;
+	const QByteArray _publicKey;
 	const QString _address;
 
 	base::flat_set<TransactionId> _preloadIds;

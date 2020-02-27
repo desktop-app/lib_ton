@@ -35,6 +35,7 @@ public:
 	~AccountViewers();
 
 	[[nodiscard]] std::unique_ptr<AccountViewer> createAccountViewer(
+		const QByteArray &publicKey,
 		const QString &address);
 	void addPendingTransaction(const PendingTransaction &pending);
 
@@ -42,6 +43,7 @@ public:
 
 private:
 	struct Viewers {
+		QByteArray publicKey;
 		rpl::variable<WalletState> state;
 		rpl::variable<crl::time> lastGoodRefresh = 0;
 		rpl::variable<bool> refreshing = false;
