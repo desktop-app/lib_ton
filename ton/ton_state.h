@@ -36,13 +36,19 @@ struct AccountState {
 bool operator==(const AccountState &a, const AccountState &b);
 bool operator!=(const AccountState &a, const AccountState &b);
 
+struct MessageText {
+	QString text;
+	QByteArray encrypted;
+	bool decrypted = false;
+};
+
 struct Message {
 	QString source;
 	QString destination;
 	int64 value = 0;
 	int64 created = 0;
 	QByteArray bodyHash;
-	QString message;
+	MessageText message;
 };
 
 struct Transaction {
@@ -71,11 +77,12 @@ bool operator!=(
 	const TransactionsSlice &b);
 
 struct TransactionToSend {
-	QString recipient;
 	int64 amount = 0;
+	QString recipient;
+	QString comment;
 	int timeout = 0;
 	bool allowSendToUninited = false;
-	QString comment;
+	bool sendUnencryptedText = false;
 };
 
 struct TransactionFees {

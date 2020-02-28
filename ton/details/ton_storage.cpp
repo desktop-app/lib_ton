@@ -149,14 +149,32 @@ AccountState Deserialize(const TLstorage_AccountState &data) {
 	});
 }
 
+TLstorage_MessageText Serialize(const MessageText &data) {
+	return !data.encrypted.isEmpty()
+		? make_storage_messageTextEncrypted(tl_bytes(data.encrypted))
+		: data.decrypted
+		? make_storage_messageTextDecrypted(tl_string(data.text))
+		: make_storage_messageTextPlain(tl_string(data.text));
+}
+
+MessageText Deserialize(const TLstorage_MessageText &data) {
+	return data.match([&](const TLDstorage_messageTextEncrypted &data) {
+		return MessageText{ QString(), tl::utf8(data.vdata()) };
+	}, [&](const TLDstorage_messageTextDecrypted &data) {
+		return MessageText{ tl::utf16(data.vtext()), QByteArray(), true };
+	}, [&](const TLDstorage_messageTextPlain &data) {
+		return MessageText{ tl::utf16(data.vtext()) };
+	});
+}
+
 TLstorage_Message Serialize(const Message &data) {
-	return make_storage_message(
+	return make_storage_message2(
 		tl_string(data.source),
 		tl_string(data.destination),
 		tl_int64(data.value),
 		tl_int64(data.created),
 		tl_bytes(data.bodyHash),
-		tl_string(data.message));
+		Serialize(data.message));
 }
 
 Message Deserialize(const TLstorage_Message &data) {
@@ -167,7 +185,16 @@ Message Deserialize(const TLstorage_Message &data) {
 			data.vvalue().v,
 			data.vcreated().v,
 			data.vbodyHash().v,
-			tl::utf16(data.vmessage())
+			MessageText{ tl::utf16(data.vmessage()) }
+		};
+	}, [&](const TLDstorage_message2 &data) {
+		return Message{
+			tl::utf16(data.vsource()),
+			tl::utf16(data.vdestination()),
+			data.vvalue().v,
+			data.vcreated().v,
+			data.vbodyHash().v,
+			Deserialize(data.vmessage())
 		};
 	});
 }

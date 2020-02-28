@@ -401,7 +401,10 @@ void Wallet::checkSendGrams(
 			tl_vector(1, tl_msg_message(
 				tl_accountAddress(tl_string(transaction.recipient)),
 				tl_int64(transaction.amount),
-				tl_msg_dataText(tl_string(transaction.comment)))),
+				(transaction.sendUnencryptedText
+					? tl_msg_dataText
+					: tl_msg_dataDecryptedText)(
+						tl_string(transaction.comment)))),
 			tl_from(transaction.allowSendToUninited))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
@@ -441,7 +444,10 @@ void Wallet::sendGrams(
 			tl_vector(1, tl_msg_message(
 				tl_accountAddress(tl_string(transaction.recipient)),
 				tl_int64(transaction.amount),
-				tl_msg_dataEncryptedText(tl_string(transaction.comment)))),
+				(transaction.sendUnencryptedText
+					? tl_msg_dataText
+					: tl_msg_dataDecryptedText)(
+						tl_string(transaction.comment)))),
 			tl_from(transaction.allowSendToUninited))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {

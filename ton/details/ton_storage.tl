@@ -10,6 +10,11 @@ storage.transaction id:storage.TransactionId time:int64 fee:int64 storageFee:int
 storage.transactionsSlice list:vector<storage.Transaction> previousId:storage.TransactionId = storage.TransactionsSlice;
 storage.pendingTransaction fake:storage.Transaction sentUntilSyncTime:int64 = storage.PendingTransaction;
 storage.walletState address:string account:storage.AccountState lastTransactions:storage.TransactionsSlice pendingTransactions:vector<storage.PendingTransaction> = storage.WalletState;
-
 storage.settings blockchainName:string configUrl:string config:string useCustomConfig:storage.Bool useNetworkCallbacks:storage.Bool = storage.Settings;
+
 storage.settings2 blockchainName:string configUrl:string config:string useCustomConfig:storage.Bool useNetworkCallbacks:storage.Bool version:int32 = storage.Settings;
+
+storage.messageTextEncrypted data:bytes = storage.MessageText;
+storage.messageTextDecrypted text:string = storage.MessageText;
+storage.messageTextPlain text:string = storage.MessageText;
+storage.message2 source:string destination:string value:int64 created:int64 bodyHash:bytes message:storage.MessageText = storage.Message;

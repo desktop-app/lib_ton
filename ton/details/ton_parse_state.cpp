@@ -26,7 +26,11 @@ namespace {
 	auto &outgoing = result.fake.outgoing.emplace_back();
 	outgoing.source = sender;
 	outgoing.destination = transaction.recipient;
-	outgoing.message = transaction.comment.toUtf8();
+	outgoing.message = MessageText{
+		transaction.comment.toUtf8(),
+		QByteArray(),
+		!transaction.sendUnencryptedText
+	};
 	outgoing.value = transaction.amount;
 	return result;
 }
@@ -52,6 +56,18 @@ AccountState Parse(const TLFullAccountState &data) {
 	});
 }
 
+MessageText Parse(const TLmsg_Data &data) {
+	return data.match([&](const TLDmsg_dataText &data) {
+		return MessageText{ tl::utf16(data.vtext()) };
+	}, [&](const TLDmsg_dataRaw &data) {
+		return MessageText{};
+	}, [&](const TLDmsg_dataEncryptedText &data) {
+		return MessageText{ QString(), data.vtext().v };
+	}, [&](const TLDmsg_dataDecryptedText &data) {
+		return MessageText{ tl::utf16(data.vtext()), QByteArray(), true };
+	});
+}
+
 Message Parse(const TLraw_Message &data) {
 	return data.match([&](const TLDraw_message &data) {
 		auto result = Message();
@@ -59,7 +75,7 @@ Message Parse(const TLraw_Message &data) {
 		result.created = data.vcreated_lt().v;
 		result.source = tl::utf16(data.vsource());
 		result.destination = tl::utf16(data.vdestination());
-		result.message = data.vmessage().v;
+		result.message = Parse(data.vmsg_data());
 		result.value = data.vvalue().v;
 		return result;
 	});
