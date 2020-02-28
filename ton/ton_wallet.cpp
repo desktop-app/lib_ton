@@ -487,36 +487,77 @@ void Wallet::requestTransactions(
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done) {
-	const auto password = _viewersPasswords[publicKey];
-	const auto generation = password.generation;
+	//const auto password = _viewersPasswords[publicKey];
+	//const auto generation = password.generation;
 	_external->lib().request(TLraw_GetTransactions(
-		prepareInputKey(publicKey, password.bytes),
+		tl_inputKeyFake(),//prepareInputKey(publicKey, password.bytes),
 		tl_accountAddress(tl_string(address)),
 		tl_internal_transactionId(tl_int64(lastId.lt), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {
-		_updates.fire({ DecryptPasswordGood{ generation } });
+		//_updates.fire({ DecryptPasswordGood{ generation } });
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
-		const auto parsed = ErrorFromLib(error);
-		if (IsIncorrectPasswordError(parsed)
-			&& ranges::contains(_publicKeys, publicKey)) {
-			const auto resend = [=] {
-				requestTransactions(publicKey, address, lastId, done);
-			};
-			if (_viewersPasswords[publicKey].generation == generation) {
-				_viewersPasswordsWaiters[publicKey].emplace_back(resend);
-				_updates.fire({ DecryptPasswordNeeded{
-					publicKey,
-					generation
-				} });
-			} else {
-				resend();
-			}
-		} else {
-			_updates.fire({ DecryptPasswordGood{ generation } });
-			InvokeCallback(done, parsed);
-		}
+		//handleInputKeyError(publicKey, generation, error, [=](
+		//		Result<> result) {
+		//	if (result) {
+		//		requestTransactions(publicKey, address, lastId, done);
+		//	} else {
+		//		InvokeCallback(done, result.error());
+		//	}
+		//});
+		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
+}
+
+void Wallet::decryptTexts(
+		const QByteArray &publicKey,
+		const QVector<QByteArray> &encrypted,
+		Callback<QVector<QString>> done) {
+	if (encrypted.isEmpty()) {
+		InvokeCallback(done, QVector<QString>());
+		return;
+	}
+	const auto password = _viewersPasswords[publicKey];
+	const auto generation = password.generation;
+	_external->lib().request(TLmsg_Decrypt(
+		prepareInputKey(publicKey, password.bytes),
+		MsgDataArrayFromEncrypted(encrypted)
+	)).done([=](const TLmsg_DataArray &result) {
+		_updates.fire({ DecryptPasswordGood{ generation } });
+		InvokeCallback(done, MsgDataArrayToDecrypted(result));
+	}).fail([=](const TLError &error) {
+		handleInputKeyError(publicKey, generation, error, [=](
+				Result<> result) {
+			if (result) {
+				decryptTexts(publicKey, encrypted, done);
+			} else {
+				InvokeCallback(done, result.error());
+			}
+		});
+	}).send();
+}
+
+void Wallet::handleInputKeyError(
+		const QByteArray &publicKey,
+		int generation,
+		const TLerror &error,
+		Callback<> done) {
+	const auto parsed = ErrorFromLib(error);
+	if (IsIncorrectPasswordError(parsed)
+		&& ranges::contains(_publicKeys, publicKey)) {
+		if (_viewersPasswords[publicKey].generation == generation) {
+			_viewersPasswordsWaiters[publicKey].emplace_back(done);
+			_updates.fire({ DecryptPasswordNeeded{
+				publicKey,
+				generation
+			} });
+		} else {
+			InvokeCallback(done);
+		}
+	} else {
+		_updates.fire({ DecryptPasswordGood{ generation } });
+		InvokeCallback(done, parsed);
+	}
 }
 
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
@@ -533,7 +574,7 @@ void Wallet::updateViewersPassword(
 	++data.generation;
 	if (const auto list = _viewersPasswordsWaiters.take(publicKey)) {
 		for (const auto &callback : *list) {
-			callback();
+			InvokeCallback(callback);
 		}
 	}
 }

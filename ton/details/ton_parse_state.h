@@ -23,4 +23,16 @@ namespace Ton::details {
 [[nodiscard]] std::vector<QString> Parse(const TLExportedKey &data);
 [[nodiscard]] Update Parse(const TLUpdate &data);
 
+[[nodiscard]] TLmsg_DataArray MsgDataArrayFromEncrypted(
+	const QVector<QByteArray> &data);
+[[nodiscard]] QVector<QString> MsgDataArrayToDecrypted(
+	const TLmsg_DataArray &data);
+
+[[nodiscard]] QVector<QByteArray> CollectEncryptedTexts(
+	const TransactionsSlice &data);
+[[nodiscard]] TransactionsSlice AddDecryptedTexts(
+	TransactionsSlice parsed,
+	const QVector<QByteArray> &encrypted,
+	const QVector<QString> &decrypted);
+
 } // namespace Ton::details

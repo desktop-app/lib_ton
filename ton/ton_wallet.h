@@ -22,10 +22,11 @@ class KeyCreator;
 class KeyDestroyer;
 class PasswordChanger;
 class AccountViewers;
-class TLinputKey;
 class WebLoader;
 class LocalTimeSyncer;
 struct BlockchainTime;
+class TLerror;
+class TLinputKey;
 } // namespace details
 
 struct Settings;
@@ -100,6 +101,10 @@ public:
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done);
+	void decryptTexts(
+		const QByteArray &publicKey,
+		const QVector<QByteArray> &encrypted,
+		Callback<QVector<QString>> done);
 
 private:
 	struct ViewersPassword {
@@ -113,6 +118,12 @@ private:
 		const QByteArray &password) const;
 	[[nodiscard]] Fn<void(Update)> generateUpdatesCallback();
 	void checkLocalTime(details::BlockchainTime time);
+
+	void handleInputKeyError(
+		const QByteArray &publicKey,
+		int generation,
+		const details::TLerror &error,
+		Callback<> done);
 
 	std::optional<int64> _walletId;
 	rpl::event_stream<Update> _updates;
@@ -131,7 +142,7 @@ private:
 	base::flat_map<QByteArray, ViewersPassword> _viewersPasswords;
 	base::flat_map<
 		QByteArray,
-		std::vector<Fn<void()>>> _viewersPasswordsWaiters;
+		std::vector<Callback<>>> _viewersPasswordsWaiters;
 
 	rpl::lifetime _lifetime;
 

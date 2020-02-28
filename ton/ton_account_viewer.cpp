@@ -8,9 +8,12 @@
 
 #include "ton/ton_state.h"
 #include "ton/ton_wallet.h"
+#include "ton/details/ton_parse_state.h"
 
 namespace Ton {
 namespace {
+
+using namespace details;
 
 constexpr auto kDefaultRefreshEach = 60 * crl::time(1000);
 
@@ -66,8 +69,20 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 			_loadedResults.fire(std::move(result.error()));
 			return;
 		}
-		_preloadIds.remove(lastId);
-		_loadedResults.fire(LoadedSlice{ lastId, std::move(*result) });
+		auto last = std::move(*result);
+		const auto encrypted = CollectEncryptedTexts(last);
+		const auto done = [=](Result<QVector<QString>> result) {
+			if (!result) {
+				_loadedResults.fire(std::move(result.error()));
+				return;
+			}
+			_preloadIds.remove(lastId);
+			_loadedResults.fire(LoadedSlice{
+				lastId,
+				AddDecryptedTexts(last, encrypted, *result)
+			});
+		};
+		_wallet->decryptTexts(_publicKey, encrypted, done);
 	};
 	_wallet->requestTransactions(
 		_publicKey,

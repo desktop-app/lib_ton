@@ -10,6 +10,7 @@
 #include "ton/ton_wallet.h"
 #include "ton/ton_account_viewer.h"
 #include "ton/details/ton_storage.h"
+#include "ton/details/ton_parse_state.h"
 #include "storage/cache/storage_cache_database.h"
 
 namespace Ton::details {
@@ -157,16 +158,14 @@ void AccountViewers::refreshAccount(
 			if (!viewers || reportError(*viewers, result)) {
 				return;
 			}
-			auto pending = ComputePendingTransactions(
-				viewers->state.current().pendingTransactions,
-				state,
-				*result);
-			saveNewState(*viewers, WalletState{
+			saveNewStateEncrypted(
 				address,
-				state,
-				std::move(*result),
-				std::move(pending)
-			}, RefreshSource::Remote);
+				*viewers,
+				WalletState{
+					address,
+					state,
+					std::move(*result) },
+				RefreshSource::Remote);
 		};
 		_owner->requestTransactions(
 			viewers->publicKey,
@@ -174,6 +173,45 @@ void AccountViewers::refreshAccount(
 			state.lastTransactionId,
 			received);
 	});
+}
+
+void AccountViewers::saveNewStateEncrypted(
+		const QString &address,
+		Viewers &viewers,
+		WalletState &&full,
+		RefreshSource source) {
+	auto &last = full.lastTransactions;
+	const auto &existingPending = full.pendingTransactions;
+	const auto &state = full.account;
+	const auto finish = [=](Viewers &viewers, TransactionsSlice &&last) {
+		auto pending = (source == RefreshSource::Database)
+			? existingPending
+			: ComputePendingTransactions(
+				viewers.state.current().pendingTransactions,
+				state,
+				last);
+		saveNewState(viewers, WalletState{
+			address,
+			state,
+			std::move(last),
+			std::move(pending)
+		}, source);
+	};
+	const auto encrypted = CollectEncryptedTexts(full.lastTransactions);
+	if (!encrypted.isEmpty()) {
+		const auto done = [=](Result<QVector<QString>> result) {
+			const auto viewers = findRefreshingViewers(address);
+			if (!viewers || reportError(*viewers, result)) {
+				return;
+			}
+			finish(
+				*viewers,
+				AddDecryptedTexts(full.lastTransactions, encrypted, *result));
+		};
+		_owner->decryptTexts(viewers.publicKey, encrypted, done);
+	} else {
+		finish(viewers, std::move(last));
+	}
 }
 
 void AccountViewers::checkNextRefresh() {
@@ -219,7 +257,8 @@ void AccountViewers::refreshFromDatabase(
 		if (!viewers) {
 			return;
 		}
-		saveNewState(
+		saveNewStateEncrypted(
+			address,
 			*viewers,
 			result.value_or(WalletState{ address }),
 			RefreshSource::Database);

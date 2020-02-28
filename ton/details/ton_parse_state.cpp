@@ -179,4 +179,75 @@ Update Parse(const TLUpdate &data) {
 	});
 }
 
+TLmsg_DataArray MsgDataArrayFromEncrypted(const QVector<QByteArray> &data) {
+	auto list = QVector<TLmsg_Data>();
+	list.reserve(data.size());
+	for (const auto &text : data) {
+		list.push_back(tl_msg_dataEncryptedText(tl_bytes(text)));
+	}
+	return tl_msg_dataArray(tl_vector(list));
+}
+
+QVector<QString> MsgDataArrayToDecrypted(const TLmsg_DataArray &data) {
+	return data.match([&](const TLDmsg_dataArray &data) {
+		auto result = QVector<QString>();
+		const auto &list = data.velements().v;
+		result.reserve(list.size());
+		for (const auto &element : list) {
+			element.match([&](const TLDmsg_dataDecryptedText &data) {
+				result.push_back(tl::utf16(data.vtext()));
+			}, [&](const auto &) {
+				result.push_back(QString());
+			});
+		}
+		return result;
+	});
+}
+
+QVector<QByteArray> CollectEncryptedTexts(const TransactionsSlice &data) {
+	auto result = QVector<QByteArray>();
+	result.reserve(data.list.size());
+	const auto add = [&](const Message &data) {
+		if (!data.message.encrypted.isEmpty()) {
+			result.push_back(data.message.encrypted);
+		}
+	};
+	for (const auto &transaction : data.list) {
+		add(transaction.incoming);
+		for (const auto &out : transaction.outgoing) {
+			add(out);
+		}
+	}
+	return result;
+}
+
+TransactionsSlice AddDecryptedTexts(
+		TransactionsSlice parsed,
+		const QVector<QByteArray> &encrypted,
+		const QVector<QString> &decrypted) {
+	Expects(encrypted.size() == decrypted.size());
+
+	if (encrypted.isEmpty()) {
+		return parsed;
+	}
+	const auto decrypt = [&](Message &message) {
+		const auto &was = message.message.encrypted;
+		if (was.isEmpty()) {
+			return;
+		}
+		const auto i = ranges::find(encrypted, was);
+		if (i != encrypted.end()) {
+			message.message.text = decrypted[i - encrypted.begin()];
+			message.message.decrypted = true;
+		}
+	};
+	for (auto &transaction : parsed.list) {
+		decrypt(transaction.incoming);
+		for (auto &out : transaction.outgoing) {
+			decrypt(out);
+		}
+	}
+	return parsed;
+}
+
 } // namespace Ton::details

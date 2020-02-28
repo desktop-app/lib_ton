@@ -70,6 +70,11 @@ private:
 	void finishRefreshing(Viewers &viewers, Result<> result = {});
 	template <typename Data>
 	bool reportError(Viewers &viewers, Result<Data> result);
+	void saveNewStateEncrypted(
+		const QString &address,
+		Viewers &viewers,
+		WalletState &&full,
+		RefreshSource source);
 	void saveNewState(
 		Viewers &viewers,
 		WalletState &&state,
