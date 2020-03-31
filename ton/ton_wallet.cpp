@@ -400,6 +400,7 @@ void Wallet::checkSendGrams(
 		tl_actionMsg(
 			tl_vector(1, tl_msg_message(
 				tl_accountAddress(tl_string(transaction.recipient)),
+				tl_string(),
 				tl_int64(transaction.amount),
 				(transaction.sendUnencryptedText
 					? tl_msg_dataText
@@ -443,6 +444,7 @@ void Wallet::sendGrams(
 		tl_actionMsg(
 			tl_vector(1, tl_msg_message(
 				tl_accountAddress(tl_string(transaction.recipient)),
+				tl_string(),
 				tl_int64(transaction.amount),
 				(transaction.sendUnencryptedText
 					? tl_msg_dataText
@@ -511,10 +513,10 @@ void Wallet::requestTransactions(
 
 void Wallet::decryptTexts(
 		const QByteArray &publicKey,
-		const QVector<QByteArray> &encrypted,
-		Callback<QVector<QString>> done) {
+		const QVector<EncryptedText> &encrypted,
+		Callback<QVector<DecryptedText>> done) {
 	if (encrypted.isEmpty()) {
-		InvokeCallback(done, QVector<QString>());
+		InvokeCallback(done, QVector<DecryptedText>());
 		return;
 	}
 	const auto password = _viewersPasswords[publicKey];
@@ -522,7 +524,7 @@ void Wallet::decryptTexts(
 	_external->lib().request(TLmsg_Decrypt(
 		prepareInputKey(publicKey, password.bytes),
 		MsgDataArrayFromEncrypted(encrypted)
-	)).done([=](const TLmsg_DataArray &result) {
+	)).done([=](const TLmsg_DataDecryptedArray &result) {
 		_updates.fire({ DecryptPasswordGood{ generation } });
 		InvokeCallback(done, MsgDataArrayToDecrypted(result));
 	}).fail([=](const TLError &error) {

@@ -199,7 +199,7 @@ void AccountViewers::saveNewStateEncrypted(
 	};
 	const auto encrypted = CollectEncryptedTexts(full.lastTransactions);
 	if (!encrypted.isEmpty()) {
-		const auto done = [=](Result<QVector<QString>> result) {
+		const auto done = [=](Result<QVector<DecryptedText>> result) {
 			const auto viewers = findRefreshingViewers(address);
 			if (!viewers || reportError(*viewers, result)) {
 				return;

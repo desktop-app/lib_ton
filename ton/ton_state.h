@@ -51,6 +51,16 @@ struct Message {
 	MessageText message;
 };
 
+struct EncryptedText {
+	QByteArray bytes;
+	QString source;
+};
+
+struct DecryptedText {
+	QString text;
+	QByteArray proof;
+};
+
 struct Transaction {
 	TransactionId id;
 	int64 time = 0;

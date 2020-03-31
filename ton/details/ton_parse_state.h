@@ -23,16 +23,16 @@ namespace Ton::details {
 [[nodiscard]] std::vector<QString> Parse(const TLExportedKey &data);
 [[nodiscard]] Update Parse(const TLUpdate &data);
 
-[[nodiscard]] TLmsg_DataArray MsgDataArrayFromEncrypted(
-	const QVector<QByteArray> &data);
-[[nodiscard]] QVector<QString> MsgDataArrayToDecrypted(
-	const TLmsg_DataArray &data);
+[[nodiscard]] TLmsg_DataEncryptedArray MsgDataArrayFromEncrypted(
+	const QVector<EncryptedText> &data);
+[[nodiscard]] QVector<DecryptedText> MsgDataArrayToDecrypted(
+	const TLmsg_DataDecryptedArray &data);
 
-[[nodiscard]] QVector<QByteArray> CollectEncryptedTexts(
+[[nodiscard]] QVector<EncryptedText> CollectEncryptedTexts(
 	const TransactionsSlice &data);
 [[nodiscard]] TransactionsSlice AddDecryptedTexts(
 	TransactionsSlice parsed,
-	const QVector<QByteArray> &encrypted,
-	const QVector<QString> &decrypted);
+	const QVector<EncryptedText> &encrypted,
+	const QVector<DecryptedText> &decrypted);
 
 } // namespace Ton::details

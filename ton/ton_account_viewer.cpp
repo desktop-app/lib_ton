@@ -71,7 +71,7 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 		}
 		auto last = std::move(*result);
 		const auto encrypted = CollectEncryptedTexts(last);
-		const auto done = [=](Result<QVector<QString>> result) {
+		const auto done = [=](Result<QVector<DecryptedText>> result) {
 			if (!result) {
 				_loadedResults.fire(std::move(result.error()));
 				return;

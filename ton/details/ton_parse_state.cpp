@@ -68,13 +68,19 @@ MessageText Parse(const TLmsg_Data &data) {
 	});
 }
 
+QString Parse(const TLAccountAddress &data) {
+	return data.match([](const TLDaccountAddress &data) {
+		return tl::utf16(data.vaccount_address());
+	});
+}
+
 Message Parse(const TLraw_Message &data) {
 	return data.match([&](const TLDraw_message &data) {
 		auto result = Message();
 		result.bodyHash = data.vbody_hash().v;
 		result.created = data.vcreated_lt().v;
-		result.source = tl::utf16(data.vsource());
-		result.destination = tl::utf16(data.vdestination());
+		result.source = Parse(data.vsource());
+		result.destination = Parse(data.vdestination());
 		result.message = Parse(data.vmsg_data());
 		result.value = data.vvalue().v;
 		return result;
@@ -179,37 +185,45 @@ Update Parse(const TLUpdate &data) {
 	});
 }
 
-TLmsg_DataArray MsgDataArrayFromEncrypted(const QVector<QByteArray> &data) {
-	auto list = QVector<TLmsg_Data>();
+TLmsg_DataEncryptedArray MsgDataArrayFromEncrypted(
+		const QVector<EncryptedText> &data) {
+	auto list = QVector<TLmsg_dataEncrypted>();
 	list.reserve(data.size());
 	for (const auto &text : data) {
-		list.push_back(tl_msg_dataEncryptedText(tl_bytes(text)));
+		list.push_back(tl_msg_dataEncrypted(
+			tl_accountAddress(tl_string(text.source)),
+			tl_msg_dataEncryptedText(tl_bytes(text.bytes))));
 	}
-	return tl_msg_dataArray(tl_vector(list));
+	return tl_msg_dataEncryptedArray(tl_vector(list));
 }
 
-QVector<QString> MsgDataArrayToDecrypted(const TLmsg_DataArray &data) {
-	return data.match([&](const TLDmsg_dataArray &data) {
-		auto result = QVector<QString>();
+QVector<DecryptedText> MsgDataArrayToDecrypted(
+		const TLmsg_DataDecryptedArray &data) {
+	return data.match([&](const TLDmsg_dataDecryptedArray &data) {
+		auto result = QVector<DecryptedText>();
 		const auto &list = data.velements().v;
 		result.reserve(list.size());
 		for (const auto &element : list) {
-			element.match([&](const TLDmsg_dataDecryptedText &data) {
-				result.push_back(tl::utf16(data.vtext()));
-			}, [&](const auto &) {
-				result.push_back(QString());
+			element.match([&](const TLDmsg_dataDecrypted &data) {
+				const auto proof = data.vproof().v;
+				data.vdata().match([&](
+						const TLDmsg_dataDecryptedText &data) {
+					result.push_back({ tl::utf16(data.vtext()), proof });
+				}, [&](const auto &) {
+					result.push_back({ QString(), proof });
+				});
 			});
 		}
 		return result;
 	});
 }
 
-QVector<QByteArray> CollectEncryptedTexts(const TransactionsSlice &data) {
-	auto result = QVector<QByteArray>();
+QVector<EncryptedText> CollectEncryptedTexts(const TransactionsSlice &data) {
+	auto result = QVector<EncryptedText>();
 	result.reserve(data.list.size());
 	const auto add = [&](const Message &data) {
 		if (!data.message.encrypted.isEmpty()) {
-			result.push_back(data.message.encrypted);
+			result.push_back({ data.message.encrypted, data.source });
 		}
 	};
 	for (const auto &transaction : data.list) {
@@ -223,8 +237,8 @@ QVector<QByteArray> CollectEncryptedTexts(const TransactionsSlice &data) {
 
 TransactionsSlice AddDecryptedTexts(
 		TransactionsSlice parsed,
-		const QVector<QByteArray> &encrypted,
-		const QVector<QString> &decrypted) {
+		const QVector<EncryptedText> &encrypted,
+		const QVector<DecryptedText> &decrypted) {
 	Expects(encrypted.size() == decrypted.size());
 
 	if (encrypted.isEmpty()) {
@@ -235,9 +249,9 @@ TransactionsSlice AddDecryptedTexts(
 		if (was.isEmpty()) {
 			return;
 		}
-		const auto i = ranges::find(encrypted, was);
+		const auto i = ranges::find(encrypted, was, &EncryptedText::bytes);
 		if (i != encrypted.end()) {
-			message.message.text = decrypted[i - encrypted.begin()];
+			message.message.text = decrypted[i - encrypted.begin()].text;
 			message.message.decrypted = true;
 		}
 	};

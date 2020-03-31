@@ -103,8 +103,8 @@ public:
 		Callback<TransactionsSlice> done);
 	void decryptTexts(
 		const QByteArray &publicKey,
-		const QVector<QByteArray> &encrypted,
-		Callback<QVector<QString>> done);
+		const QVector<EncryptedText> &encrypted,
+		Callback<QVector<DecryptedText>> done);
 
 private:
 	struct ViewersPassword {
