@@ -34,6 +34,10 @@ using namespace details;
 
 constexpr auto kSmcRevision = 1;
 
+[[nodiscard]] TLError GenerateFakeIncorrectPasswordError() {
+	return tl_error(tl_int32(0), tl_string("KEY_DECRYPT"));
+}
+
 } // namespace
 
 Wallet::Wallet(const QString &path)
@@ -511,32 +515,73 @@ void Wallet::requestTransactions(
 	}).send();
 }
 
-void Wallet::decryptTexts(
+void Wallet::trySilentDecrypt(
 		const QByteArray &publicKey,
-		const QVector<EncryptedText> &encrypted,
-		Callback<QVector<DecryptedText>> done) {
-	if (encrypted.isEmpty()) {
-		InvokeCallback(done, QVector<DecryptedText>());
+		std::vector<Transaction> &&list,
+		Callback<std::vector<Transaction>> done) {
+	const auto encrypted = CollectEncryptedTexts(list);
+	if (encrypted.empty() || !_viewersPasswords.contains(publicKey)) {
+		InvokeCallback(done, std::move(list));
 		return;
 	}
+	const auto shared = std::make_shared<std::vector<Transaction>>(
+		std::move(list));
 	const auto password = _viewersPasswords[publicKey];
 	const auto generation = password.generation;
 	_external->lib().request(TLmsg_Decrypt(
 		prepareInputKey(publicKey, password.bytes),
 		MsgDataArrayFromEncrypted(encrypted)
 	)).done([=](const TLmsg_DataDecryptedArray &result) {
-		_updates.fire({ DecryptPasswordGood{ generation } });
-		InvokeCallback(done, MsgDataArrayToDecrypted(result));
+		InvokeCallback(
+			done,
+			AddDecryptedTexts(
+				std::move(*shared),
+				encrypted,
+				MsgDataArrayToDecrypted(result)));
 	}).fail([=](const TLError &error) {
+		InvokeCallback(done, std::move(*shared));
+	}).send();
+}
+
+void Wallet::decrypt(
+		const QByteArray &publicKey,
+		std::vector<Transaction> &&list,
+		Callback<std::vector<Transaction>> done) {
+	const auto encrypted = CollectEncryptedTexts(list);
+	if (encrypted.empty()) {
+		InvokeCallback(done, std::move(list));
+		return;
+	}
+	const auto shared = std::make_shared<std::vector<Transaction>>(
+		std::move(list));
+	const auto password = _viewersPasswords[publicKey];
+	const auto generation = password.generation;
+	const auto fail = [=](const TLError &error) {
 		handleInputKeyError(publicKey, generation, error, [=](
 				Result<> result) {
 			if (result) {
-				decryptTexts(publicKey, encrypted, done);
+				decrypt(publicKey, std::move(*shared), done);
 			} else {
 				InvokeCallback(done, result.error());
 			}
 		});
-	}).send();
+	};
+	if (password.bytes.isEmpty()) {
+		fail(GenerateFakeIncorrectPasswordError());
+		return;
+	}
+	_external->lib().request(TLmsg_Decrypt(
+		prepareInputKey(publicKey, password.bytes),
+		MsgDataArrayFromEncrypted(encrypted)
+	)).done([=](const TLmsg_DataDecryptedArray &result) {
+		_updates.fire({ DecryptPasswordGood{ generation } });
+		InvokeCallback(
+			done,
+			AddDecryptedTexts(
+				std::move(*shared),
+				encrypted,
+				MsgDataArrayToDecrypted(result)));
+	}).fail(fail).send();
 }
 
 void Wallet::handleInputKeyError(

@@ -29,9 +29,9 @@ namespace Ton::details {
 	const TLmsg_DataDecryptedArray &data);
 
 [[nodiscard]] QVector<EncryptedText> CollectEncryptedTexts(
-	const TransactionsSlice &data);
-[[nodiscard]] TransactionsSlice AddDecryptedTexts(
-	TransactionsSlice parsed,
+	const std::vector<Transaction> &data);
+[[nodiscard]] std::vector<Transaction> AddDecryptedTexts(
+	std::vector<Transaction> parsed,
 	const QVector<EncryptedText> &encrypted,
 	const QVector<DecryptedText> &decrypted);
 

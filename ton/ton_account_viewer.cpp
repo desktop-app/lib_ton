@@ -69,20 +69,22 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 			_loadedResults.fire(std::move(result.error()));
 			return;
 		}
-		auto last = std::move(*result);
-		const auto encrypted = CollectEncryptedTexts(last);
-		const auto done = [=](Result<QVector<DecryptedText>> result) {
+		const auto previousId = result->previousId;
+		const auto done = [=](Result<std::vector<Transaction>> &&result) {
 			if (!result) {
 				_loadedResults.fire(std::move(result.error()));
 				return;
 			}
+			auto slice = TransactionsSlice();
+			slice.previousId = previousId;
+			slice.list = std::move(*result);
 			_preloadIds.remove(lastId);
 			_loadedResults.fire(LoadedSlice{
 				lastId,
-				AddDecryptedTexts(last, encrypted, *result)
+				TransactionsSlice{ std::move(*result), previousId }
 			});
 		};
-		_wallet->decryptTexts(_publicKey, encrypted, done);
+		_wallet->trySilentDecrypt(_publicKey, std::move(result->list), done);
 	};
 	_wallet->requestTransactions(
 		_publicKey,

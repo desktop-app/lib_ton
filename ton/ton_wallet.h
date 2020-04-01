@@ -94,6 +94,15 @@ public:
 
 	void loadWebResource(const QString &url, Callback<QByteArray> done);
 
+	void decrypt(
+		const QByteArray &publicKey,
+		std::vector<Transaction> &&list,
+		Callback<std::vector<Transaction>> done);
+	void trySilentDecrypt(
+		const QByteArray &publicKey,
+		std::vector<Transaction> &&list,
+		Callback<std::vector<Transaction>> done);
+
 	// Internal API.
 	void requestState(const QString &address, Callback<AccountState> done);
 	void requestTransactions(
@@ -101,10 +110,6 @@ public:
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done);
-	void decryptTexts(
-		const QByteArray &publicKey,
-		const QVector<EncryptedText> &encrypted,
-		Callback<QVector<DecryptedText>> done);
 
 private:
 	struct ViewersPassword {

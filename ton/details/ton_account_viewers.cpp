@@ -197,21 +197,17 @@ void AccountViewers::saveNewStateEncrypted(
 			std::move(pending)
 		}, source);
 	};
-	const auto encrypted = CollectEncryptedTexts(full.lastTransactions);
-	if (!encrypted.isEmpty()) {
-		const auto done = [=](Result<QVector<DecryptedText>> result) {
-			const auto viewers = findRefreshingViewers(address);
-			if (!viewers || reportError(*viewers, result)) {
-				return;
-			}
-			finish(
-				*viewers,
-				AddDecryptedTexts(full.lastTransactions, encrypted, *result));
-		};
-		_owner->decryptTexts(viewers.publicKey, encrypted, done);
-	} else {
-		finish(viewers, std::move(last));
-	}
+	const auto previousId = last.previousId;
+	const auto done = [=](Result<std::vector<Transaction>> &&result) {
+		const auto viewers = findRefreshingViewers(address);
+		if (!viewers || reportError(*viewers, result)) {
+			return;
+		}
+		finish(
+			*viewers,
+			TransactionsSlice{ std::move(*result), previousId });
+	};
+	_owner->trySilentDecrypt(viewers.publicKey, std::move(last.list), done);
 }
 
 void AccountViewers::checkNextRefresh() {

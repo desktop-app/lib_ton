@@ -218,15 +218,16 @@ QVector<DecryptedText> MsgDataArrayToDecrypted(
 	});
 }
 
-QVector<EncryptedText> CollectEncryptedTexts(const TransactionsSlice &data) {
+QVector<EncryptedText> CollectEncryptedTexts(
+		const std::vector<Transaction> &data) {
 	auto result = QVector<EncryptedText>();
-	result.reserve(data.list.size());
+	result.reserve(data.size());
 	const auto add = [&](const Message &data) {
 		if (!data.message.encrypted.isEmpty()) {
 			result.push_back({ data.message.encrypted, data.source });
 		}
 	};
-	for (const auto &transaction : data.list) {
+	for (const auto &transaction : data) {
 		add(transaction.incoming);
 		for (const auto &out : transaction.outgoing) {
 			add(out);
@@ -235,8 +236,8 @@ QVector<EncryptedText> CollectEncryptedTexts(const TransactionsSlice &data) {
 	return result;
 }
 
-TransactionsSlice AddDecryptedTexts(
-		TransactionsSlice parsed,
+std::vector<Transaction> AddDecryptedTexts(
+		std::vector<Transaction> parsed,
 		const QVector<EncryptedText> &encrypted,
 		const QVector<DecryptedText> &decrypted) {
 	Expects(encrypted.size() == decrypted.size());
@@ -255,7 +256,7 @@ TransactionsSlice AddDecryptedTexts(
 			message.message.decrypted = true;
 		}
 	};
-	for (auto &transaction : parsed.list) {
+	for (auto &transaction : parsed) {
 		decrypt(transaction.incoming);
 		for (auto &out : transaction.outgoing) {
 			decrypt(out);
