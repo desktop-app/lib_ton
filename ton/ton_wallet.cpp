@@ -493,24 +493,13 @@ void Wallet::requestTransactions(
 		const QString &address,
 		const TransactionId &lastId,
 		Callback<TransactionsSlice> done) {
-	//const auto password = _viewersPasswords[publicKey];
-	//const auto generation = password.generation;
 	_external->lib().request(TLraw_GetTransactions(
-		tl_inputKeyFake(),//prepareInputKey(publicKey, password.bytes),
+		tl_inputKeyFake(),
 		tl_accountAddress(tl_string(address)),
 		tl_internal_transactionId(tl_int64(lastId.lt), tl_bytes(lastId.hash))
 	)).done([=](const TLraw_Transactions &result) {
-		//_updates.fire({ DecryptPasswordGood{ generation } });
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
-		//handleInputKeyError(publicKey, generation, error, [=](
-		//		Result<> result) {
-		//	if (result) {
-		//		requestTransactions(publicKey, address, lastId, done);
-		//	} else {
-		//		InvokeCallback(done, result.error());
-		//	}
-		//});
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
 }
@@ -616,6 +605,11 @@ std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
 void Wallet::updateViewersPassword(
 		const QByteArray &publicKey,
 		const QByteArray &password) {
+	if (password.isEmpty()) {
+		_viewersPasswords.remove(publicKey);
+		_viewersPasswordsWaiters.remove(publicKey);
+		return;
+	}
 	auto &data = _viewersPasswords[publicKey];
 	data.bytes = password;
 	++data.generation;
