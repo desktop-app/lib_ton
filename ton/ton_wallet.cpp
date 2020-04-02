@@ -33,6 +33,7 @@ namespace {
 using namespace details;
 
 constexpr auto kSmcRevision = 1;
+constexpr auto kViewersPasswordExpires = 15 * 60 * crl::time(1000);
 
 [[nodiscard]] TLError GenerateFakeIncorrectPasswordError() {
 	return tl_error(tl_int32(0), tl_string("KEY_DECRYPT"));
@@ -46,7 +47,8 @@ Wallet::Wallet(const QString &path)
 	std::make_unique<AccountViewers>(
 		this,
 		&_external->lib(),
-		&_external->db())) {
+		&_external->db()))
+, _viewersPasswordsExpireTimer([=] { checkPasswordsExpiration(); }) {
 	crl::async([] {
 		// Init random, because it is slow.
 		static_cast<void>(openssl::RandomValue<uint8>());
@@ -563,7 +565,7 @@ void Wallet::decrypt(
 		prepareInputKey(publicKey, password.bytes),
 		MsgDataArrayFromEncrypted(encrypted)
 	)).done([=](const TLmsg_DataDecryptedArray &result) {
-		_updates.fire({ DecryptPasswordGood{ generation } });
+		notifyPasswordGood(publicKey, generation);
 		InvokeCallback(
 			done,
 			AddDecryptedTexts(
@@ -581,7 +583,9 @@ void Wallet::handleInputKeyError(
 	const auto parsed = ErrorFromLib(error);
 	if (IsIncorrectPasswordError(parsed)
 		&& ranges::contains(_publicKeys, publicKey)) {
-		if (_viewersPasswords[publicKey].generation == generation) {
+		if (_viewersPasswords.contains(publicKey)
+			&& _viewersPasswords[publicKey].generation == generation) {
+			_viewersPasswords[publicKey].expires = 0;
 			_viewersPasswordsWaiters[publicKey].emplace_back(done);
 			_updates.fire({ DecryptPasswordNeeded{
 				publicKey,
@@ -591,9 +595,24 @@ void Wallet::handleInputKeyError(
 			InvokeCallback(done);
 		}
 	} else {
-		_updates.fire({ DecryptPasswordGood{ generation } });
+		notifyPasswordGood(publicKey, generation);
 		InvokeCallback(done, parsed);
 	}
+}
+
+void Wallet::notifyPasswordGood(
+		const QByteArray &publicKey,
+		int generation) {
+	if (_viewersPasswords.contains(publicKey)
+		&& !_viewersPasswords[publicKey].expires) {
+		const auto expires = crl::now() + kViewersPasswordExpires;
+		_viewersPasswords[publicKey].expires = expires;
+		if (!_viewersPasswordsExpireTimer.isActive()) {
+			_viewersPasswordsExpireTimer.callOnce(
+				kViewersPasswordExpires);
+		}
+	}
+	_updates.fire({ DecryptPasswordGood{ generation } });
 }
 
 std::unique_ptr<AccountViewer> Wallet::createAccountViewer(
@@ -617,6 +636,28 @@ void Wallet::updateViewersPassword(
 		for (const auto &callback : *list) {
 			InvokeCallback(callback);
 		}
+	}
+}
+
+void Wallet::checkPasswordsExpiration() {
+	const auto now = crl::now();
+	auto next = crl::time(0);
+	for (auto i = _viewersPasswords.begin(); i != _viewersPasswords.end();) {
+		const auto expires = i->second.expires;
+		if (!expires) {
+			++i;
+		} else if (expires <= now) {
+			_viewersPasswordsWaiters.remove(i->first);
+			i = _viewersPasswords.erase(i);
+		} else {
+			if (!next || next > expires) {
+				next = expires;
+			}
+			++i;
+		}
+	}
+	if (next) {
+		_viewersPasswordsExpireTimer.callOnce(next - now);
 	}
 }
 

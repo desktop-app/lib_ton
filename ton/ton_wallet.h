@@ -9,6 +9,7 @@
 #include "ton/ton_result.h"
 #include "ton/ton_state.h"
 #include "base/weak_ptr.h"
+#include "base/timer.h"
 
 namespace Storage::Cache {
 class Database;
@@ -115,6 +116,7 @@ private:
 	struct ViewersPassword {
 		QByteArray bytes;
 		int generation = 1;
+		crl::time expires = 0;
 	};
 	void setWalletList(const details::WalletList &list);
 	[[nodiscard]] details::WalletList collectWalletList() const;
@@ -123,6 +125,8 @@ private:
 		const QByteArray &password) const;
 	[[nodiscard]] Fn<void(Update)> generateUpdatesCallback();
 	void checkLocalTime(details::BlockchainTime time);
+	void notifyPasswordGood(const QByteArray &publicKey, int generation);
+	void checkPasswordsExpiration();
 
 	void handleInputKeyError(
 		const QByteArray &publicKey,
@@ -148,6 +152,7 @@ private:
 	base::flat_map<
 		QByteArray,
 		std::vector<Callback<>>> _viewersPasswordsWaiters;
+	base::Timer _viewersPasswordsExpireTimer;
 
 	rpl::lifetime _lifetime;
 
