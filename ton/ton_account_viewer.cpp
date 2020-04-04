@@ -75,9 +75,6 @@ void AccountViewer::preloadSlice(const TransactionId &lastId) {
 				_loadedResults.fire(std::move(result.error()));
 				return;
 			}
-			auto slice = TransactionsSlice();
-			slice.previousId = previousId;
-			slice.list = std::move(*result);
 			_preloadIds.remove(lastId);
 			_loadedResults.fire(LoadedSlice{
 				lastId,
