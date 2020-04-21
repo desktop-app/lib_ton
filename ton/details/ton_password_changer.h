@@ -31,7 +31,7 @@ public:
 		not_null<Storage::Cache::Database*> db,
 		const QByteArray &oldPassword,
 		const QByteArray &newPassword,
-		WalletList &&existing,
+		WalletList existing,
 		Callback<std::vector<QByteArray>> done);
 
 private:

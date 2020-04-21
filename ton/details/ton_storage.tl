@@ -2,6 +2,7 @@ storage.true = storage.Bool;
 storage.false = storage.Bool;
 
 storage.walletEntry publicKey:string secret:bytes = storage.WalletEntry;
+storage.walletEntryRestricted initPublicKey:string publicKey:string secret:bytes = storage.WalletEntry;
 storage.walletList entries:vector<storage.WalletEntry> = storage.WalletList;
 storage.transactionId lt:int64 hash:bytes = storage.TransactionId;
 storage.accountState balance:int64 syncTime:int64 lastTransactionId:storage.TransactionId = storage.AccountState;

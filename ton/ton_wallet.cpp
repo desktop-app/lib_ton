@@ -48,6 +48,7 @@ Wallet::Wallet(const QString &path)
 		this,
 		&_external->lib(),
 		&_external->db()))
+, _list(std::make_unique<WalletList>())
 , _viewersPasswordsExpireTimer([=] { checkPasswordsExpiration(); }) {
 	crl::async([] {
 		// Init random, because it is slow.
@@ -171,12 +172,18 @@ void Wallet::checkConfig(const QByteArray &config, Callback<> done) {
 	}).send();
 }
 
+void Wallet::sync() {
+	_external->lib().request(TLSync()).send();
+}
+
 rpl::producer<Update> Wallet::updates() const {
 	return _updates.events();
 }
 
-const std::vector<QByteArray> &Wallet::publicKeys() const {
-	return _publicKeys;
+std::vector<QByteArray> Wallet::publicKeys() const {
+	return _list->entries | ranges::view::transform(
+		&WalletList::Entry::publicKey
+	) | ranges::to_vector;
 }
 
 void Wallet::createKey(Callback<std::vector<QString>> done) {
@@ -214,8 +221,17 @@ void Wallet::importKey(const std::vector<QString> &words, Callback<> done) {
 		std::move(created));
 }
 
+void Wallet::queryRestrictedInitPublicKey(Callback<QByteArray> done) {
+	Expects(_keyCreator != nullptr);
+
+	_keyCreator->queryRestrictedInitPublicKey(
+		getAddress(_keyCreator->key()),
+		std::move(done));
+}
+
 void Wallet::saveKey(
 		const QByteArray &password,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<QByteArray> done) {
 	Expects(_keyCreator != nullptr);
 
@@ -225,13 +241,13 @@ void Wallet::saveKey(
 			return;
 		}
 		const auto destroyed = base::take(_keyCreator);
-		_publicKeys.push_back(result->publicKey);
-		_secrets.push_back(result->secret);
+		_list->entries.push_back(*result);
 		InvokeCallback(done, result->publicKey);
 	};
 	_keyCreator->save(
 		password,
-		collectWalletList(),
+		*_list,
+		restrictedInitPublicKey,
 		std::move(saved));
 }
 
@@ -248,41 +264,24 @@ void Wallet::exportKey(
 	}).send();
 }
 
-WalletList Wallet::collectWalletList() const {
-	Expects(_publicKeys.size() == _secrets.size());
-
-	auto result = WalletList();
-	for (auto i = 0, count = int(_secrets.size()); i != count; ++i) {
-		result.entries.push_back({ _publicKeys[i], _secrets[i] });
-	}
-	return result;
-}
-
 TLinputKey Wallet::prepareInputKey(
 		const QByteArray &publicKey,
 		const QByteArray &password) const {
-	const auto index = ranges::find(_publicKeys, publicKey)
-		- begin(_publicKeys);
-	Assert(index < _secrets.size());
+	const auto i = ranges::find(
+		_list->entries,
+		publicKey,
+		&WalletList::Entry::publicKey);
+	Assert(i != end(_list->entries));
 
 	return tl_inputKeyRegular(
-		tl_key(tl_string(publicKey), TLsecureBytes{ _secrets[index] }),
+		tl_key(tl_string(publicKey), TLsecureBytes{ i->secret }),
 		TLsecureBytes{ password });
 }
 
 void Wallet::setWalletList(const WalletList &list) {
-	Expects(_publicKeys.empty());
-	Expects(_secrets.empty());
+	Expects(_list->entries.empty());
 
-	if (list.entries.empty()) {
-		return;
-	}
-	_publicKeys.reserve(list.entries.size());
-	_secrets.reserve(list.entries.size());
-	for (const auto &[publicKey, secret] : list.entries) {
-		_publicKeys.push_back(publicKey);
-		_secrets.push_back(secret);
-	}
+	*_list = list;
 }
 
 void Wallet::deleteKey(
@@ -291,9 +290,12 @@ void Wallet::deleteKey(
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
 	Expects(_passwordChanger == nullptr);
-	Expects(ranges::contains(_publicKeys, publicKey));
+	Expects(ranges::contains(
+		_list->entries,
+		publicKey,
+		&WalletList::Entry::publicKey));
 
-	auto list = collectWalletList();
+	auto list = *_list;
 	const auto index = ranges::find(
 		list.entries,
 		publicKey,
@@ -306,8 +308,7 @@ void Wallet::deleteKey(
 			InvokeCallback(done, result);
 			return;
 		}
-		_publicKeys.erase(begin(_publicKeys) + index);
-		_secrets.erase(begin(_secrets) + index);
+		_list->entries.erase(begin(_list->entries) + index);
 		_viewersPasswords.erase(publicKey);
 		_viewersPasswordsWaiters.erase(publicKey);
 		InvokeCallback(done, result);
@@ -331,8 +332,7 @@ void Wallet::deleteAllKeys(Callback<> done) {
 			InvokeCallback(done, result);
 			return;
 		}
-		_publicKeys.clear();
-		_secrets.clear();
+		_list->entries.clear();
 		_viewersPasswords.clear();
 		_viewersPasswordsWaiters.clear();
 		InvokeCallback(done, result);
@@ -350,7 +350,7 @@ void Wallet::changePassword(
 	Expects(_keyCreator == nullptr);
 	Expects(_keyDestroyer == nullptr);
 	Expects(_passwordChanger == nullptr);
-	Expects(!_publicKeys.empty());
+	Expects(!_list->entries.empty());
 
 	auto changed = [=](Result<std::vector<QByteArray>> result) {
 		const auto destroyed = base::take(_passwordChanger);
@@ -358,7 +358,10 @@ void Wallet::changePassword(
 			InvokeCallback(done, result.error());
 			return;
 		}
-		_secrets = std::move(*result);
+		Assert(result->size() == _list->entries.size());
+		for (auto i = 0, count = int(result->size()); i != count; ++i) {
+			_list->entries[i].secret = (*result)[i];
+		}
 		for (auto &[publicKey, password] : _viewersPasswords) {
 			updateViewersPassword(publicKey, newPassword);
 		}
@@ -369,7 +372,7 @@ void Wallet::changePassword(
 		&_external->db(),
 		oldPassword,
 		newPassword,
-		collectWalletList(),
+		*_list,
 		std::move(changed));
 }
 
@@ -381,10 +384,6 @@ void Wallet::checkSendGrams(
 
 	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
-
-	const auto index = ranges::find(_publicKeys, publicKey)
-		- begin(_publicKeys);
-	Assert(index < _secrets.size());
 
 	const auto check = [=](int64 id) {
 		_external->lib().request(TLquery_EstimateFees(
@@ -482,8 +481,6 @@ void Wallet::requestState(
 	_external->lib().request(TLGetAccountState(
 		tl_accountAddress(tl_string(address))
 	)).done([=](const TLFullAccountState &result) {
-		const auto finish = [&](auto &&value) {
-		};
 		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
@@ -582,7 +579,10 @@ void Wallet::handleInputKeyError(
 		Callback<> done) {
 	const auto parsed = ErrorFromLib(error);
 	if (IsIncorrectPasswordError(parsed)
-		&& ranges::contains(_publicKeys, publicKey)) {
+		&& ranges::contains(
+			_list->entries,
+			publicKey,
+			&WalletList::Entry::publicKey)) {
 		if (_viewersPasswords.contains(publicKey)
 			&& _viewersPasswords[publicKey].generation == generation) {
 			_viewersPasswords[publicKey].expires = 0;

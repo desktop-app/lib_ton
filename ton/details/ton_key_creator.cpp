@@ -75,6 +75,7 @@ KeyCreator::KeyCreator(
 		InvokeCallback(done, ErrorFromLib(error));
 	})).send();
 }
+
 void KeyCreator::exportWords(
 		Fn<void(Result<std::vector<QString>>)> done) {
 	Expects(_state == State::Creating);
@@ -95,10 +96,34 @@ void KeyCreator::exportWords(
 	})).send();
 }
 
+QByteArray KeyCreator::key() const {
+	Expects(!_key.isEmpty());
+
+	return _key;
+}
+
+void KeyCreator::queryRestrictedInitPublicKey(
+		const QString &address,
+		Callback<QByteArray> done) {
+	Expects(!_key.isEmpty());
+
+	_lib->request(TLGetAccountState(
+		tl_accountAddress(tl_string(address))
+	)).done([=](const TLFullAccountState &result) {
+		result.match([&](const TLDfullAccountState &data) {
+			InvokeCallback(done, QByteArray());
+		});
+	}).fail([=](const TLError &error) {
+		InvokeCallback(done, ErrorFromLib(error));
+	}).send();
+}
+
 void KeyCreator::save(
 		const QByteArray &password,
 		const WalletList &existing,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<WalletList::Entry> done) {
+	_restrictedInitPublicKey = restrictedInitPublicKey;
 	if (_password != password) {
 		changePassword(password, [=](Result<> result) {
 			_state = State::Created;
@@ -121,7 +146,11 @@ void KeyCreator::saveToDatabase(
 	Expects(!_secret.isEmpty());
 
 	_state = State::Saving;
-	const auto added = WalletList::Entry{ _key, _secret };
+	const auto added = WalletList::Entry{
+		.publicKey = _key,
+		.secret = _secret,
+		.restrictedInitPublicKey = _restrictedInitPublicKey
+	};
 	existing.entries.push_back(added);
 	SaveWalletList(_db, existing, crl::guard(this, [=](Result<> result) {
 		if (!result) {

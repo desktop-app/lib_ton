@@ -46,17 +46,21 @@ public:
 	[[nodiscard]] QString getAddress(const QByteArray &publicKey) const;
 	void checkConfig(const QByteArray &config, Callback<> done);
 
+	void sync();
+
 	[[nodiscard]] const Settings &settings() const;
 	void updateSettings(const Settings &settings, Callback<> done);
 
 	[[nodiscard]] rpl::producer<Update> updates() const;
 
-	[[nodiscard]] const std::vector<QByteArray> &publicKeys() const;
+	[[nodiscard]] std::vector<QByteArray> publicKeys() const;
 
 	void createKey(Callback<std::vector<QString>> done);
 	void importKey(const std::vector<QString> &words, Callback<> done);
+	void queryRestrictedInitPublicKey(Callback<QByteArray> done);
 	void saveKey(
 		const QByteArray &password,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<QByteArray> done);
 	void exportKey(
 		const QByteArray &publicKey,
@@ -119,7 +123,6 @@ private:
 		crl::time expires = 0;
 	};
 	void setWalletList(const details::WalletList &list);
-	[[nodiscard]] details::WalletList collectWalletList() const;
 	[[nodiscard]] details::TLinputKey prepareInputKey(
 		const QByteArray &publicKey,
 		const QByteArray &password) const;
@@ -140,14 +143,13 @@ private:
 
 	const std::unique_ptr<details::External> _external;
 	const std::unique_ptr<details::AccountViewers> _accountViewers;
+	const std::unique_ptr<details::WalletList> _list;
 	std::unique_ptr<details::WebLoader> _webLoader;
 	std::unique_ptr<details::KeyCreator> _keyCreator;
 	std::unique_ptr<details::KeyDestroyer> _keyDestroyer;
 	std::unique_ptr<details::PasswordChanger> _passwordChanger;
 	std::unique_ptr<details::LocalTimeSyncer> _localTimeSyncer;
 
-	std::vector<QByteArray> _publicKeys;
-	std::vector<QByteArray> _secrets;
 	base::flat_map<QByteArray, ViewersPassword> _viewersPasswords;
 	base::flat_map<
 		QByteArray,

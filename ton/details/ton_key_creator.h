@@ -29,9 +29,14 @@ public:
 		const std::vector<QString> &words,
 		Fn<void(Result<>)> done);
 
+	[[nodiscard]] QByteArray key() const;
+	void queryRestrictedInitPublicKey(
+		const QString &address,
+		Callback<QByteArray> done);
 	void save(
 		const QByteArray &password,
 		const WalletList &existing,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<WalletList::Entry> done);
 
 private:
@@ -54,6 +59,7 @@ private:
 	State _state = State::Creating;
 	QByteArray _key;
 	QByteArray _secret;
+	QByteArray _restrictedInitPublicKey;
 	QByteArray _password;
 
 };
