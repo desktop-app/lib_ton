@@ -104,6 +104,7 @@ QByteArray KeyCreator::key() const {
 
 void KeyCreator::queryRestrictedInitPublicKey(
 		const QString &address,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<QByteArray> done) {
 	Expects(!_key.isEmpty());
 
@@ -111,7 +112,12 @@ void KeyCreator::queryRestrictedInitPublicKey(
 		tl_accountAddress(tl_string(address))
 	)).done([=](const TLFullAccountState &result) {
 		result.match([&](const TLDfullAccountState &data) {
-			InvokeCallback(done, QByteArray());
+			data.vaccount_state().match([&](
+					const TLDrwallet_accountState &) {
+				InvokeCallback(done, restrictedInitPublicKey);
+			}, [&](const auto &) {
+				InvokeCallback(done, QByteArray());
+			});
 		});
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));

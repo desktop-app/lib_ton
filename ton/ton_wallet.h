@@ -28,6 +28,7 @@ class LocalTimeSyncer;
 struct BlockchainTime;
 class TLerror;
 class TLinputKey;
+class TLinitialAccountState;
 } // namespace details
 
 struct Settings;
@@ -43,7 +44,7 @@ public:
 		const Settings &defaultSettings,
 		Callback<> done);
 	void start(Callback<> done);
-	[[nodiscard]] QString getAddress(const QByteArray &publicKey) const;
+	[[nodiscard]] QString getUsedAddress(const QByteArray &publicKey) const;
 	void checkConfig(const QByteArray &config, Callback<> done);
 
 	void sync();
@@ -131,6 +132,11 @@ private:
 	void notifyPasswordGood(const QByteArray &publicKey, int generation);
 	void checkPasswordsExpiration();
 
+	[[nodiscard]] details::TLinitialAccountState getUsedInitialAccountState(
+		const QByteArray &publicKey) const;
+	[[nodiscard]] QString getUsedAddress(
+		const details::TLinitialAccountState &state) const;
+
 	void handleInputKeyError(
 		const QByteArray &publicKey,
 		int generation,
@@ -138,6 +144,7 @@ private:
 		Callback<> done);
 
 	std::optional<int64> _walletId;
+	QByteArray _restrictedInitPublicKey;
 	rpl::event_stream<Update> _updates;
 	SyncState _lastSyncStateUpdate;
 

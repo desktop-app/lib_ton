@@ -32,6 +32,7 @@ public:
 	[[nodiscard]] QByteArray key() const;
 	void queryRestrictedInitPublicKey(
 		const QString &address,
+		const QByteArray &restrictedInitPublicKey,
 		Callback<QByteArray> done);
 	void save(
 		const QByteArray &password,
