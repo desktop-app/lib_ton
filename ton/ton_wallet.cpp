@@ -381,6 +381,7 @@ void Wallet::checkSendGrams(
 		const TransactionToSend &transaction,
 		Callback<TransactionCheckResult> done) {
 	Expects(transaction.amount >= 0);
+	Expects(_walletId.has_value());
 
 	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
@@ -411,7 +412,10 @@ void Wallet::checkSendGrams(
 					? tl_msg_dataText
 					: tl_msg_dataDecryptedText)(
 						tl_string(transaction.comment)))),
-			tl_from(transaction.allowSendToUninited))
+			tl_from(transaction.allowSendToUninited)),
+		tl_wallet_v3_initialAccountState(
+			tl_string(publicKey),
+			tl_int64(*_walletId))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			check(data.vid().v);
@@ -428,6 +432,7 @@ void Wallet::sendGrams(
 		Callback<PendingTransaction> ready,
 		Callback<> done) {
 	Expects(transaction.amount >= 0);
+	Expects(_walletId.has_value());
 
 	const auto sender = getAddress(publicKey);
 	Assert(!sender.isEmpty());
@@ -455,7 +460,10 @@ void Wallet::sendGrams(
 					? tl_msg_dataText
 					: tl_msg_dataDecryptedText)(
 						tl_string(transaction.comment)))),
-			tl_from(transaction.allowSendToUninited))
+			tl_from(transaction.allowSendToUninited)),
+		tl_wallet_v3_initialAccountState(
+			tl_string(publicKey),
+			tl_int64(*_walletId))
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			const auto weak = base::make_weak(this);
