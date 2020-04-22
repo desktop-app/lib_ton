@@ -39,7 +39,9 @@ TLstorage_WalletList Serialize(const WalletList &data);
 WalletList Deserialize(const TLstorage_WalletList &data);
 TLstorage_TransactionId Serialize(const TransactionId &data);
 TransactionId Deserialize(const TLstorage_TransactionId &data);
-TLstorage_AccountState Serialize(const AccountState &data);
+TLstorage_RestrictionLimit Serialize(const RestrictionLimit &data);
+RestrictionLimit Deserialize(const TLstorage_RestrictionLimit &data);
+TLstorage_AccountState Serialize(const AccountState & data);
 AccountState Deserialize(const TLstorage_AccountState &data);
 TLstorage_Message Serialize(const Message &data);
 Message Deserialize(const TLstorage_Message &data);
@@ -143,20 +145,57 @@ TransactionId Deserialize(const TLstorage_TransactionId &data) {
 	});
 }
 
+TLstorage_RestrictionLimit Serialize(const RestrictionLimit &data) {
+	return make_storage_restrictionLimit(
+		tl_int32(data.seconds),
+		tl_int64(data.lockedAmount));
+}
+
+RestrictionLimit Deserialize(const TLstorage_RestrictionLimit &data) {
+	return data.match([&](const TLDstorage_restrictionLimit &data) {
+		return RestrictionLimit{
+			.seconds = data.vseconds().v,
+			.lockedAmount = data.vlockedAmount().v
+		};
+	});
+}
+
 TLstorage_AccountState Serialize(const AccountState &data) {
-	return make_storage_accountState(
-		tl_int64(data.balance),
+	const auto restricted = data.lockedBalance
+		|| data.restrictionStartAt
+		|| !data.restrictionLimits.empty();
+	return make_storage_accountStateFull(
+		tl_int64(data.fullBalance),
 		tl_int64(data.syncTime),
-		Serialize(data.lastTransactionId));
+		Serialize(data.lastTransactionId),
+		(restricted
+			? make_storage_accountStateRestricted(
+				tl_int64(data.lockedBalance),
+				tl_int64(data.restrictionStartAt),
+				Serialize(data.restrictionLimits))
+			: make_storage_accountStateNormal()));
 }
 
 AccountState Deserialize(const TLstorage_AccountState &data) {
 	return data.match([&](const TLDstorage_accountState &data) {
 		return AccountState{
-			data.vbalance().v,
-			data.vsyncTime().v,
-			Deserialize(data.vlastTransactionId())
+			.fullBalance = data.vbalance().v,
+			.syncTime = data.vsyncTime().v,
+			.lastTransactionId = Deserialize(data.vlastTransactionId())
 		};
+	}, [&](const TLDstorage_accountStateFull &data) {
+		auto result = AccountState{
+			.fullBalance = data.vbalance().v,
+			.syncTime = data.vsyncTime().v,
+			.lastTransactionId = Deserialize(data.vlastTransactionId())
+		};
+		data.vdetails().match([&](const TLDstorage_accountStateNormal &) {
+		}, [&](const TLDstorage_accountStateRestricted &data) {
+			result.restrictionStartAt = data.vstartAt().v;
+			result.lockedBalance = data.vlockedBalance().v;
+			result.restrictionLimits = Deserialize(data.vlimits());
+		});
+		return result;
 	});
 }
 

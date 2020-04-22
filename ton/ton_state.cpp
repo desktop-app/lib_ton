@@ -20,9 +20,18 @@ bool operator!=(const TransactionId &a, const TransactionId &b) {
 	return !(a == b);
 }
 
+bool operator==(const RestrictionLimit &a, const RestrictionLimit &b) {
+	return (a.seconds == b.seconds) && (a.lockedAmount == b.lockedAmount);
+}
+bool operator!=(const RestrictionLimit &a, const RestrictionLimit &b) {
+	return !(a == b);
+}
+
 bool operator==(const AccountState &a, const AccountState &b) {
-	return (a.balance == b.balance)
-		&& (a.lastTransactionId == b.lastTransactionId);
+	return (a.fullBalance == b.fullBalance)
+		&& (a.lockedBalance == b.lockedBalance)
+		&& (a.lastTransactionId == b.lastTransactionId)
+		&& (a.restrictionLimits == b.restrictionLimits);
 }
 
 bool operator!=(const AccountState &a, const AccountState &b) {

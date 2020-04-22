@@ -46,12 +46,37 @@ TransactionId Parse(const TLinternal_TransactionId &data) {
 	});
 }
 
+RestrictionLimit Parse(const TLrwallet_limit &data) {
+	return data.match([&](const TLDrwallet_limit &data) {
+		return RestrictionLimit{
+			.seconds = data.vseconds().v,
+			.lockedAmount = data.vvalue().v
+		};
+	});
+}
+
 AccountState Parse(const TLFullAccountState &data) {
 	return data.match([&](const TLDfullAccountState &data) {
 		auto result = AccountState();
-		result.balance = data.vbalance().v;
+		result.fullBalance = data.vbalance().v;
 		result.lastTransactionId = Parse(data.vlast_transaction_id());
 		result.syncTime = data.vsync_utime().v;
+		data.vaccount_state().match([&](
+				const TLDrwallet_accountState &data) {
+			const auto unlocked = data.vunlocked_balance().v;
+			result.lockedBalance = (result.fullBalance > unlocked)
+				? (result.fullBalance - unlocked)
+				: 0;
+			data.vconfig().match([&](const TLDrwallet_config &data) {
+				result.restrictionStartAt = data.vstart_at().v;
+				result.restrictionLimits = ranges::view::all(
+					data.vlimits().v
+				) | ranges::view::transform([](const TLrwallet_limit &data) {
+					return Parse(data);
+				}) | ranges::to_vector;
+			});
+		}, [](const auto &data) {
+		});
 		return result;
 	});
 }

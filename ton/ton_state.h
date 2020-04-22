@@ -27,10 +27,21 @@ bool operator<(
 	const TransactionId &a,
 	const TransactionId &b);
 
+struct RestrictionLimit {
+	int32 seconds = 0;
+	int64 lockedAmount = 0;
+};
+
+bool operator==(const RestrictionLimit &a, const RestrictionLimit &b);
+bool operator!=(const RestrictionLimit &a, const RestrictionLimit &b);
+
 struct AccountState {
-	int64 balance = kUnknownBalance;
+	int64 fullBalance = kUnknownBalance;
+	int64 lockedBalance = 0;
 	int64 syncTime = 0;
+	int64 restrictionStartAt = 0;
 	TransactionId lastTransactionId;
+	std::vector<RestrictionLimit> restrictionLimits;
 };
 
 bool operator==(const AccountState &a, const AccountState &b);
