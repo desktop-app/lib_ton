@@ -147,6 +147,7 @@ private:
 	QByteArray _restrictedInitPublicKey;
 	rpl::event_stream<Update> _updates;
 	SyncState _lastSyncStateUpdate;
+	bool _switchedToMain = false;
 
 	const std::unique_ptr<details::External> _external;
 	const std::unique_ptr<details::AccountViewers> _accountViewers;

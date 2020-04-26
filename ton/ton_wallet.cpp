@@ -116,8 +116,14 @@ void Wallet::open(
 			return;
 		}
 		setWalletList(*result);
-		_external->lib().request(TLSync()).send();
-		InvokeCallback(done);
+		if (_switchedToMain) {
+			auto copy = settings();
+			copy.useTestNetwork = false;
+			updateSettings(copy, std::move(done));
+		} else {
+			_external->lib().request(TLSync()).send();
+			InvokeCallback(done);
+		}
 	};
 	_external->open(globalPassword, defaultSettings, std::move(opened));
 }
@@ -745,6 +751,11 @@ Fn<void(Update)> Wallet::generateUpdatesCallback() {
 				return;
 			}
 			_lastSyncStateUpdate = *sync;
+		} else if (const auto upgrade = base::get_if<ConfigUpgrade>(
+				&update.data)) {
+			if (*upgrade == ConfigUpgrade::TestnetToMainnet) {
+				_switchedToMain = true;
+			}
 		}
 		_updates.fire(std::move(update));
 	};
