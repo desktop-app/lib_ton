@@ -122,22 +122,22 @@ void KeyCreator::queryWalletDetails(
 					});
 				return;
 			}
+			_lib->request(TLGuessAccountRevision(
+				state
+			)).done([=](const TLAccountRevisionList &result) {
+				result.match([&](const TLDaccountRevisionList &data) {
+					for (const auto &revision : data.vrevisions().v) {
+						InvokeCallback(
+							done,
+							WalletDetails{ .revision = revision.v });
+						return;
+					}
+					InvokeCallback(done, WalletDetails());
+				});
+			}).fail([=](const TLError &error) {
+				InvokeCallback(done, ErrorFromLib(error));
+			}).send();
 		});
-		_lib->request(TLGuessAccountRevision(
-			state
-		)).done([=](const TLAccountRevisionList &result) {
-			result.match([&](const TLDaccountRevisionList &data) {
-				for (const auto &revision : data.vrevisions().v) {
-					InvokeCallback(
-						done,
-						WalletDetails{ .revision = revision.v });
-					return;
-				}
-				InvokeCallback(done, WalletDetails());
-			});
-		}).fail([=](const TLError &error) {
-			InvokeCallback(done, ErrorFromLib(error));
-		}).send();
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
