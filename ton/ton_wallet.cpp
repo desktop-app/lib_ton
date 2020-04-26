@@ -173,17 +173,39 @@ const Settings &Wallet::settings() const {
 	return _external->settings();
 }
 
-void Wallet::updateSettings(const Settings &settings, Callback<> done) {
-	const auto name = _external->settings().blockchainName;
-	const auto detach = (name != settings.blockchainName);
+void Wallet::updateSettings(Settings settings, Callback<> done) {
+	const auto &was = _external->settings();
+	const auto detach = (was.net().blockchainName
+		!= settings.net().blockchainName);
+	const auto change = (was.useTestNetwork != settings.useTestNetwork);
+	const auto finish = [=](Result<int64> result) {
+		if (!result) {
+			InvokeCallback(done, result.error());
+			return;
+		}
+		Expects(!_walletId || *_walletId == *result || detach || change);
+		_walletId = *result;
+		InvokeCallback(done);
+	};
+	if (!change) {
+		_external->updateSettings(settings, finish);
+		return;
+	}
+	// First just save the new settings.
+	settings.useTestNetwork = was.useTestNetwork;
 	_external->updateSettings(settings, [=](Result<int64> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
 		}
-		Expects(!_walletId || *_walletId == *result || detach);
-		_walletId = *result;
-		InvokeCallback(done);
+		// Then logout and switch the network.
+		deleteAllKeys([=](Result<> result) {
+			if (!result) {
+				InvokeCallback(done, result.error());
+				return;
+			}
+			_external->switchNetwork(finish);
+		});
 	});
 }
 
@@ -286,6 +308,7 @@ void Wallet::saveKey(
 		password,
 		*_list,
 		restrictedInitPublicKey,
+		settings().useTestNetwork,
 		std::move(saved));
 }
 
@@ -356,6 +379,7 @@ void Wallet::deleteKey(
 		&_external->db(),
 		std::move(list),
 		index,
+		settings().useTestNetwork,
 		std::move(removed));
 }
 
@@ -378,6 +402,7 @@ void Wallet::deleteAllKeys(Callback<> done) {
 	_keyDestroyer = std::make_unique<KeyDestroyer>(
 		&_external->lib(),
 		&_external->db(),
+		settings().useTestNetwork,
 		std::move(removed));
 }
 
@@ -411,6 +436,7 @@ void Wallet::changePassword(
 		oldPassword,
 		newPassword,
 		*_list,
+		settings().useTestNetwork,
 		std::move(changed));
 }
 

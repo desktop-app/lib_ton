@@ -25,10 +25,12 @@ public:
 		not_null<Storage::Cache::Database*> db,
 		const WalletList &existing,
 		index_type index,
+		bool useTestNetwork,
 		Callback<> done);
 	KeyDestroyer(
 		not_null<RequestSender*> lib,
 		not_null<Storage::Cache::Database*> db,
+		bool useTestNetwork,
 		Callback<> done);
 
 };

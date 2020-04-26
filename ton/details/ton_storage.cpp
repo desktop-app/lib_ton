@@ -16,7 +16,14 @@ namespace Ton::details {
 namespace {
 
 constexpr auto kSettingsKey = Storage::Cache::Key{ 1ULL, 0ULL };
-constexpr auto kWalletListKey = Storage::Cache::Key{ 1ULL, 1ULL };
+constexpr auto kWalletTestListKey = Storage::Cache::Key{ 1ULL, 1ULL };
+constexpr auto kWalletMainListKey = Storage::Cache::Key{ 1ULL, 2ULL };
+
+[[nodiscard]] Storage::Cache::Key WalletListKey(bool useTestNetwork) {
+	return useTestNetwork
+		? kWalletTestListKey
+		: kWalletMainListKey;
+}
 
 [[nodiscard]] Storage::Cache::Key WalletStateKey(const QString &address) {
 	const auto utf8 = address.toUtf8();
@@ -323,12 +330,30 @@ WalletState Deserialize(const TLstorage_WalletState &data) {
 	});
 }
 
-TLstorage_Settings Serialize(const Settings &data) {
-	return make_storage_settings2(
+TLstorage_Network Serialize(const NetSettings &data) {
+	return make_storage_network(
 		tl_string(data.blockchainName),
 		tl_string(data.configUrl),
 		tl_string(data.config),
-		Serialize(data.useCustomConfig),
+		Serialize(data.useCustomConfig));
+}
+
+NetSettings Deserialize(const TLstorage_Network &data) {
+	return data.match([&](const TLDstorage_network &data) {
+		return NetSettings{
+			.blockchainName = tl::utf16(data.vblockchainName()),
+			.configUrl = tl::utf16(data.vconfigUrl()),
+			.config = tl::utf8(data.vconfig()),
+			.useCustomConfig = Deserialize(data.vuseCustomConfig())
+		};
+	});
+}
+
+TLstorage_Settings Serialize(const Settings &data) {
+	return make_storage_settings3(
+		Serialize(data.main),
+		Serialize(data.test),
+		Serialize(data.useTestNetwork),
 		Serialize(data.useNetworkCallbacks),
 		tl_int32(data.version));
 }
@@ -337,21 +362,35 @@ Settings Deserialize(const TLstorage_Settings &data) {
 	auto result = Settings();
 	return data.match([&](const TLDstorage_settings &data) {
 		return Settings{
-			tl::utf16(data.vblockchainName()),
-			tl::utf16(data.vconfigUrl()),
-			tl::utf8(data.vconfig()),
-			Deserialize(data.vuseCustomConfig()),
-			Deserialize(data.vuseNetworkCallbacks()),
-			0
+			.test = NetSettings{
+				.blockchainName = tl::utf16(data.vblockchainName()),
+				.configUrl = tl::utf16(data.vconfigUrl()),
+				.config = tl::utf8(data.vconfig()),
+				.useCustomConfig = Deserialize(data.vuseCustomConfig())
+			},
+			.useTestNetwork = true,
+			.useNetworkCallbacks = Deserialize(data.vuseNetworkCallbacks()),
+			.version = 0
 		};
 	}, [&](const TLDstorage_settings2 &data) {
 		return Settings{
-			tl::utf16(data.vblockchainName()),
-			tl::utf16(data.vconfigUrl()),
-			tl::utf8(data.vconfig()),
-			Deserialize(data.vuseCustomConfig()),
-			Deserialize(data.vuseNetworkCallbacks()),
-			data.vversion().v
+			.test = NetSettings{
+				.blockchainName = tl::utf16(data.vblockchainName()),
+				.configUrl = tl::utf16(data.vconfigUrl()),
+				.config = tl::utf8(data.vconfig()),
+				.useCustomConfig = Deserialize(data.vuseCustomConfig())
+			},
+			.useTestNetwork = true,
+			.useNetworkCallbacks = Deserialize(data.vuseNetworkCallbacks()),
+			.version = data.vversion().v
+		};
+	}, [&](const TLDstorage_settings3 &data) {
+		return Settings{
+			.main = Deserialize(data.vmain()),
+			.test = Deserialize(data.vtest()),
+			.useTestNetwork = Deserialize(data.vuseTestNetwork()),
+			.useNetworkCallbacks = Deserialize(data.vuseNetworkCallbacks()),
+			.version = data.vversion().v
 		};
 	});
 	return result;
@@ -405,6 +444,7 @@ void DeletePublicKey(
 void SaveWalletList(
 		not_null<Storage::Cache::Database*> db,
 		const WalletList &list,
+		bool useTestNetwork,
 		Callback<> done) {
 	auto saved = [=](Storage::Cache::Error error) {
 		crl::on_main([=] {
@@ -416,18 +456,19 @@ void SaveWalletList(
 		});
 	};
 	if (list.entries.empty()) {
-		db->remove(kWalletListKey, std::move(saved));
+		db->remove(WalletListKey(useTestNetwork), std::move(saved));
 	} else {
-		db->put(kWalletListKey, Pack(list), std::move(saved));
+		db->put(WalletListKey(useTestNetwork), Pack(list), std::move(saved));
 	}
 }
 
 void LoadWalletList(
 		not_null<Storage::Cache::Database*> db,
+		bool useTestNetwork,
 		Fn<void(WalletList&&)> done) {
 	Expects(done != nullptr);
 
-	db->get(kWalletListKey, [=](QByteArray value) {
+	db->get(WalletListKey(useTestNetwork), [=](QByteArray value) {
 		crl::on_main([done, result = Unpack<WalletList>(value)]() mutable {
 			done(std::move(result));
 		});

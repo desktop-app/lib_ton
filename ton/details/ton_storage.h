@@ -49,9 +49,11 @@ void DeletePublicKey(
 void SaveWalletList(
 	not_null<Storage::Cache::Database*> db,
 	const WalletList &list,
+	bool useTestNetwork,
 	Callback<> done);
 void LoadWalletList(
 	not_null<Storage::Cache::Database*> db,
+	bool useTestNetwork,
 	Fn<void(WalletList&&)> done);
 
 void SaveWalletState(

@@ -38,6 +38,7 @@ public:
 		const QByteArray &password,
 		const WalletList &existing,
 		const QByteArray &restrictedInitPublicKey,
+		bool useTestNetwork,
 		Callback<WalletList::Entry> done);
 
 private:
@@ -52,6 +53,7 @@ private:
 	void changePassword(const QByteArray &password, Callback<> done);
 	void saveToDatabase(
 		WalletList existing,
+		bool useTestNetwork,
 		Callback<WalletList::Entry> done);
 
 	const not_null<RequestSender*> _lib;

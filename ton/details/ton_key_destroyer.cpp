@@ -17,6 +17,7 @@ KeyDestroyer::KeyDestroyer(
 		not_null<Storage::Cache::Database*> db,
 		const details::WalletList &existing,
 		index_type index,
+		bool useTestNetwork,
 		Callback<> done) {
 	Expects(index >= 0 && index < existing.entries.size());
 
@@ -24,7 +25,7 @@ KeyDestroyer::KeyDestroyer(
 	auto removeFromDatabase = crl::guard(this, [=](Result<>) {
 		auto copy = existing;
 		copy.entries.erase(begin(copy.entries) + index);
-		SaveWalletList(db, copy, crl::guard(this, done));
+		SaveWalletList(db, copy, useTestNetwork, crl::guard(this, done));
 	});
 	DeletePublicKey(
 		lib,
@@ -36,9 +37,10 @@ KeyDestroyer::KeyDestroyer(
 KeyDestroyer::KeyDestroyer(
 		not_null<RequestSender*> lib,
 		not_null<Storage::Cache::Database*> db,
+		bool useTestNetwork,
 		Callback<> done) {
 	const auto removeFromDatabase = crl::guard(this, [=](const auto&) {
-		SaveWalletList(db, {}, crl::guard(this, done));
+		SaveWalletList(db, {}, useTestNetwork, crl::guard(this, done));
 	});
 	lib->request(TLDeleteAllKeys(
 	)).done(

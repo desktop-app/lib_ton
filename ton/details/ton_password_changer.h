@@ -32,6 +32,7 @@ public:
 		const QByteArray &oldPassword,
 		const QByteArray &newPassword,
 		WalletList existing,
+		bool useTestNetwork,
 		Callback<std::vector<QByteArray>> done);
 
 private:
@@ -45,6 +46,7 @@ private:
 	const QByteArray _oldPassword;
 	const QByteArray _newPassword;
 	const Callback<std::vector<QByteArray>> _done;
+	const bool _useTestNetwork = false;
 	WalletList _list;
 	std::vector<QByteArray> _newSecrets;
 

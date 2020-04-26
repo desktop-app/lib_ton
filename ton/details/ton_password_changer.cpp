@@ -16,12 +16,14 @@ PasswordChanger::PasswordChanger(
 	const QByteArray &oldPassword,
 	const QByteArray &newPassword,
 	WalletList existing,
+	bool useTestNetwork,
 	Callback<std::vector<QByteArray>> done)
 : _lib(lib)
 , _db(db)
 , _oldPassword(oldPassword)
 , _newPassword(newPassword)
 , _done(std::move(done))
+, _useTestNetwork(useTestNetwork)
 , _list(std::move(existing)) {
 	changeNext();
 }
@@ -62,7 +64,7 @@ void PasswordChanger::savedNext(const QByteArray &newSecret) {
 				rollforward();
 			}
 		};
-		SaveWalletList(_db, copy, crl::guard(this, saved));
+		SaveWalletList(_db, copy, _useTestNetwork, crl::guard(this, saved));
 	}
 }
 

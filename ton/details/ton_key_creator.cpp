@@ -128,6 +128,7 @@ void KeyCreator::save(
 		const QByteArray &password,
 		const WalletList &existing,
 		const QByteArray &restrictedInitPublicKey,
+		bool useTestNetwork,
 		Callback<WalletList::Entry> done) {
 	_restrictedInitPublicKey = restrictedInitPublicKey;
 	if (_password != password) {
@@ -137,15 +138,16 @@ void KeyCreator::save(
 				InvokeCallback(done, result.error());
 				return;
 			}
-			saveToDatabase(existing, done);
+			saveToDatabase(existing, useTestNetwork, done);
 		});
 	} else {
-		saveToDatabase(existing, std::move(done));
+		saveToDatabase(existing, useTestNetwork, std::move(done));
 	}
 }
 
 void KeyCreator::saveToDatabase(
 		WalletList existing,
+		bool useTestNetwork,
 		Callback<WalletList::Entry> done) {
 	Expects(_state == State::Created);
 	Expects(!_key.isEmpty());
@@ -158,14 +160,15 @@ void KeyCreator::saveToDatabase(
 		.restrictedInitPublicKey = _restrictedInitPublicKey
 	};
 	existing.entries.push_back(added);
-	SaveWalletList(_db, existing, crl::guard(this, [=](Result<> result) {
+	const auto saved = [=](Result<> result) {
 		if (!result) {
 			_state = State::Created;
 			InvokeCallback(done, result.error());
 		} else {
 			InvokeCallback(done, added);
 		}
-	}));
+	};
+	SaveWalletList(_db, existing, useTestNetwork, crl::guard(this, saved));
 }
 
 void KeyCreator::changePassword(

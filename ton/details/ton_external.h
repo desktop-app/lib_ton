@@ -38,6 +38,7 @@ public:
 
 	[[nodiscard]] const Settings &settings() const;
 	void updateSettings(const Settings &settings, Callback<int64> done);
+	void switchNetwork(Callback<int64> done);
 
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Storage::Cache::Database &db();

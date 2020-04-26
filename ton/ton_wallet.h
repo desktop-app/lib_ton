@@ -50,7 +50,7 @@ public:
 	void sync();
 
 	[[nodiscard]] const Settings &settings() const;
-	void updateSettings(const Settings &settings, Callback<> done);
+	void updateSettings(Settings settings, Callback<> done);
 
 	[[nodiscard]] rpl::producer<Update> updates() const;
 

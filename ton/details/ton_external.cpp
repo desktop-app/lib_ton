@@ -117,17 +117,18 @@ void External::open(
 			InvokeCallback(done, result.error());
 			return;
 		}
-		if (!result->config.isEmpty()) {
+		if (!result->test.config.isEmpty()) {
 			applyLocalSettings(*result);
 		}
 		const auto future = std::make_shared<std::optional<WalletList>>();
-		LoadWalletList(_db.get(), crl::guard(this, [=](WalletList &&list) {
+		const auto loadedWallets = crl::guard(this, [=](WalletList &&list) {
 			if (_state == State::Opened) {
 				InvokeCallback(done, std::move(list));
 			} else {
 				*future = std::move(list);
 			}
-		}));
+		});
+		LoadWalletList(_db.get(), _settings.useTestNetwork, loadedWallets);
 		startLibrary([=](Result<> result) {
 			if (!result) {
 				_state = State::Initial;
@@ -149,9 +150,16 @@ void External::open(
 }
 
 void External::applyLocalSettings(const Settings &localSettings) {
-	if (localSettings.version == 0
+	if (localSettings.version < 3
+		&& localSettings.useTestNetwork
+		&& _settings.version == 3
+		&& !_settings.useTestNetwork) {
+		_configUpgrade = ConfigUpgrade::TestnetToMainnet;
+		_settings.test = localSettings.test;
+		_settings.useTestNetwork = true;
+	} else if (localSettings.version == 0
 		&& _settings.version == 2
-		&& _settings.blockchainName == "testnet2") {
+		&& _settings.test.blockchainName == "testnet2") {
 		_configUpgrade = ConfigUpgrade::TestnetToTestnet2;
 	} else {
 		_settings = localSettings;
@@ -167,13 +175,17 @@ const Settings &External::settings() const {
 void External::updateSettings(
 		const Settings &settings,
 		Callback<int64> done) {
-	const auto clear = (_settings.blockchainName != settings.blockchainName);
+	Expects(_settings.useTestNetwork == settings.useTestNetwork);
+
+	const auto &was = _settings.net();
+	const auto &now = settings.net();
+	const auto clear = (was.blockchainName != now.blockchainName);
 	_settings = settings;
-	const auto config = _settings.config;
+	const auto config = now.config;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
-			tl_string(_settings.config),
-			tl_string(_settings.blockchainName),
+			tl_string(now.config),
+			tl_string(now.blockchainName),
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(clear))
 	)).done([=](const TLoptions_ConfigInfo &result) {
@@ -188,6 +200,12 @@ void External::updateSettings(
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
+}
+
+void External::switchNetwork(Callback<int64> done) {
+	_settings.useTestNetwork = !_settings.useTestNetwork;
+
+	updateSettings(_settings, std::move(done));
 }
 
 void External::resetNetwork() {
@@ -337,11 +355,10 @@ void External::startLibrary(Callback<> done) {
 }
 
 void External::start(Callback<int64> done) {
-	const auto config = _settings.config;
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
-			tl_string(_settings.config),
-			tl_string(_settings.blockchainName),
+			tl_string(_settings.net().config),
+			tl_string(_settings.net().blockchainName),
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(false))
 	)).done([=](const TLoptions_ConfigInfo &result) {
