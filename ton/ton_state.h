@@ -12,6 +12,11 @@ namespace Ton {
 
 inline constexpr auto kUnknownBalance = int64(-666);
 
+struct ConfigInfo {
+	int64 walletId = 0;
+	QByteArray restrictedInitPublicKey;
+};
+
 struct TransactionId {
 	int64 lt = 0;
 	QByteArray hash;

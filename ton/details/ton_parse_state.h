@@ -11,6 +11,7 @@
 
 namespace Ton::details {
 
+[[nodiscard]] ConfigInfo Parse(const TLoptions_ConfigInfo &data);
 [[nodiscard]] TransactionId Parse(const TLinternal_TransactionId &data);
 [[nodiscard]] AccountState Parse(const TLFullAccountState &data);
 [[nodiscard]] Transaction Parse(const TLraw_Transaction &data);

@@ -33,8 +33,6 @@ namespace {
 using namespace details;
 
 constexpr auto kViewersPasswordExpires = 15 * 60 * crl::time(1000);
-constexpr auto kTestRestrictedInitPublicKey
-	= "PuYcgC80F-MUPMI9Y_Gd0NhVrkYm_5_6vXFUqdArH7Uo4Y6P";
 
 [[nodiscard]] TLError GenerateFakeIncorrectPasswordError() {
 	return tl_error(tl_int32(0), tl_string("KEY_DECRYPT"));
@@ -42,9 +40,9 @@ constexpr auto kTestRestrictedInitPublicKey
 
 [[nodiscard]] int SmcRevision(const TLinitialAccountState &state) {
 	return state.match([](const TLDwallet_v3_initialAccountState &) {
-		return 1;
+		return 2;
 	}, [](const TLDrwallet_initialAccountState &) {
-		return -1; AssertIsDebug();
+		return 1;
 	}, [](const auto &) -> int {
 		Unexpected("Unknown initial account state.");
 	});
@@ -129,14 +127,12 @@ void Wallet::open(
 }
 
 void Wallet::start(Callback<> done) {
-	_external->start([=](Result<int64> result) {
+	_external->start([=](Result<ConfigInfo> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
 		}
-		_walletId = *result;
-		AssertIsDebug();
-		_restrictedInitPublicKey = kTestRestrictedInitPublicKey;
+		_configInfo = *result;
 		InvokeCallback(done);
 	});
 }
@@ -147,7 +143,7 @@ QString Wallet::getUsedAddress(const QByteArray &publicKey) const {
 
 TLinitialAccountState Wallet::getUsedInitialAccountState(
 		const QByteArray &publicKey) const {
-	Expects(_walletId.has_value());
+	Expects(_configInfo.has_value());
 
 	const auto i = ranges::find(
 		_list->entries,
@@ -157,11 +153,11 @@ TLinitialAccountState Wallet::getUsedInitialAccountState(
 	return i->restrictedInitPublicKey.isEmpty()
 		? tl_wallet_v3_initialAccountState(
 			tl_string(publicKey),
-			tl_int64(*_walletId))
+			tl_int64(_configInfo->walletId))
 		: tl_rwallet_initialAccountState(
 			tl_string(i->restrictedInitPublicKey),
 			tl_string(publicKey),
-			tl_int64(*_walletId));
+			tl_int64(_configInfo->walletId));
 }
 
 QString Wallet::getUsedAddress(const TLinitialAccountState &state) const {
@@ -184,13 +180,16 @@ void Wallet::updateSettings(Settings settings, Callback<> done) {
 	const auto detach = (was.net().blockchainName
 		!= settings.net().blockchainName);
 	const auto change = (was.useTestNetwork != settings.useTestNetwork);
-	const auto finish = [=](Result<int64> result) {
+	const auto finish = [=](Result<ConfigInfo> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
 		}
-		Expects(!_walletId || *_walletId == *result || detach || change);
-		_walletId = *result;
+		Expects(!_configInfo
+			|| (_configInfo->walletId == result->walletId)
+			|| detach
+			|| change);
+		_configInfo = *result;
 		InvokeCallback(done);
 	};
 	if (!change) {
@@ -199,7 +198,7 @@ void Wallet::updateSettings(Settings settings, Callback<> done) {
 	}
 	// First just save the new settings.
 	settings.useTestNetwork = was.useTestNetwork;
-	_external->updateSettings(settings, [=](Result<int64> result) {
+	_external->updateSettings(settings, [=](Result<ConfigInfo> result) {
 		if (!result) {
 			InvokeCallback(done, result.error());
 			return;
@@ -283,15 +282,15 @@ void Wallet::importKey(const std::vector<QString> &words, Callback<> done) {
 
 void Wallet::queryRestrictedInitPublicKey(Callback<QByteArray> done) {
 	Expects(_keyCreator != nullptr);
-	Expects(!_restrictedInitPublicKey.isEmpty());
+	Expects(_configInfo.has_value());
 
 	_keyCreator->queryRestrictedInitPublicKey(
 		getUsedAddress(
 			tl_rwallet_initialAccountState(
-				tl_string(_restrictedInitPublicKey),
+				tl_string(_configInfo->restrictedInitPublicKey),
 				tl_string(_keyCreator->key()),
-				tl_int64(*_walletId))),
-		_restrictedInitPublicKey,
+				tl_int64(_configInfo->walletId))),
+		_configInfo->restrictedInitPublicKey,
 		std::move(done));
 }
 

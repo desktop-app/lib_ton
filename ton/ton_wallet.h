@@ -143,8 +143,7 @@ private:
 		const details::TLerror &error,
 		Callback<> done);
 
-	std::optional<int64> _walletId;
-	QByteArray _restrictedInitPublicKey;
+	std::optional<ConfigInfo> _configInfo;
 	rpl::event_stream<Update> _updates;
 	SyncState _lastSyncStateUpdate;
 	bool _switchedToMain = false;

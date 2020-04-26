@@ -174,7 +174,7 @@ const Settings &External::settings() const {
 
 void External::updateSettings(
 		const Settings &settings,
-		Callback<int64> done) {
+		Callback<ConfigInfo> done) {
 	Expects(_settings.useTestNetwork == settings.useTestNetwork);
 
 	const auto &was = _settings.net();
@@ -189,12 +189,12 @@ void External::updateSettings(
 			tl_from(_settings.useNetworkCallbacks),
 			tl_from(clear))
 	)).done([=](const TLoptions_ConfigInfo &result) {
-		const auto walletId = WalletId(result);
+		const auto parsed = Parse(result);
 		const auto saved = [=](Result<> result) {
 			if (!result) {
 				InvokeCallback(done, result.error());
 			}
-			InvokeCallback(done, walletId);
+			InvokeCallback(done, parsed);
 		};
 		SaveSettings(_db.get(), settings, crl::guard(this, saved));
 	}).fail([=](const TLError &error) {
@@ -202,7 +202,7 @@ void External::updateSettings(
 	}).send();
 }
 
-void External::switchNetwork(Callback<int64> done) {
+void External::switchNetwork(Callback<ConfigInfo> done) {
 	_settings.useTestNetwork = !_settings.useTestNetwork;
 
 	updateSettings(_settings, std::move(done));
@@ -243,12 +243,6 @@ void External::LogMessage(const QString &message) {
 	RequestSender::Execute(TLAddLogMessage(
 		tl_int32(kDebugVerbosity),
 		tl_string(message)));
-}
-
-int64 External::WalletId(const TLoptions_ConfigInfo &data) {
-	return data.match([](const TLDoptions_configInfo &data) {
-		return data.vdefault_wallet_id().v;
-	});
 }
 
 Result<> External::loadSalt() {
@@ -354,7 +348,7 @@ void External::startLibrary(Callback<> done) {
 	}).send();
 }
 
-void External::start(Callback<int64> done) {
+void External::start(Callback<ConfigInfo> done) {
 	_lib.request(TLoptions_SetConfig(
 		tl_config(
 			tl_string(_settings.net().config),
@@ -370,7 +364,7 @@ void External::start(Callback<int64> done) {
 			}
 		}, _lifetime);
 
-		InvokeCallback(done, WalletId(result));
+		InvokeCallback(done, Parse(result));
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();

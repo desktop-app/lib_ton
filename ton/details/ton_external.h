@@ -19,6 +19,7 @@ class Database;
 
 namespace Ton {
 struct Update;
+struct ConfigInfo;
 } // namespace Ton
 
 namespace Ton::details {
@@ -34,18 +35,17 @@ public:
 		const QByteArray &globalPassword,
 		const Settings &defaultSettings,
 		Callback<WalletList> done);
-	void start(Callback<int64> done);
+	void start(Callback<ConfigInfo> done);
 
 	[[nodiscard]] const Settings &settings() const;
-	void updateSettings(const Settings &settings, Callback<int64> done);
-	void switchNetwork(Callback<int64> done);
+	void updateSettings(const Settings &settings, Callback<ConfigInfo> done);
+	void switchNetwork(Callback<ConfigInfo> done);
 
 	[[nodiscard]] RequestSender &lib();
 	[[nodiscard]] Storage::Cache::Database &db();
 
 	static void EnableLogging(bool enabled, const QString &basePath);
 	static void LogMessage(const QString &message);
-	[[nodiscard]] static int64 WalletId(const TLoptions_ConfigInfo &data);
 
 private:
 	enum class State {

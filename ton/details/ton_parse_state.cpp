@@ -37,6 +37,16 @@ namespace {
 
 } // namespace
 
+ConfigInfo Parse(const TLoptions_ConfigInfo &data) {
+	return data.match([](const TLDoptions_configInfo &data) {
+		return ConfigInfo{
+			.walletId = data.vdefault_wallet_id().v,
+			.restrictedInitPublicKey = tl::utf8(
+				data.vdefault_rwallet_init_public_key())
+		};
+	});
+}
+
 TransactionId Parse(const TLinternal_TransactionId &data) {
 	return data.match([&](const TLDinternal_transactionId &data) {
 		auto result = TransactionId();
