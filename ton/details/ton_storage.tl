@@ -3,6 +3,9 @@ storage.false = storage.Bool;
 
 storage.walletEntry publicKey:string secret:bytes = storage.WalletEntry;
 storage.walletEntryRestricted initPublicKey:string publicKey:string secret:bytes = storage.WalletEntry;
+storage.walletDetailsNormal = storage.WalletEntryDetails;
+storage.walletDetailsRestricted initPublicKey:string = storage.WalletEntryDetails;
+storage.walletEntryGeneric publicKey:string secret:bytes revision:int32 details:storage.WalletEntryDetails = storage.WalletEntry;
 storage.walletList entries:vector<storage.WalletEntry> = storage.WalletList;
 storage.transactionId lt:int64 hash:bytes = storage.TransactionId;
 storage.restrictionLimit seconds:int32 lockedAmount:int64 = storage.RestrictionLimit;

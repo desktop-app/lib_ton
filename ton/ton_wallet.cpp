@@ -38,13 +38,11 @@ constexpr auto kViewersPasswordExpires = 15 * 60 * crl::time(1000);
 	return tl_error(tl_int32(0), tl_string("KEY_DECRYPT"));
 }
 
-[[nodiscard]] int SmcRevision(const TLinitialAccountState &state) {
+[[nodiscard]] int DefaultSmcRevision(const TLinitialAccountState &state) {
 	return state.match([](const TLDwallet_v3_initialAccountState &) {
 		return 2;
-	}, [](const TLDrwallet_initialAccountState &) {
-		return 1;
 	}, [](const auto &) -> int {
-		Unexpected("Unknown initial account state.");
+		Unexpected("Initial account state.");
 	});
 }
 
@@ -138,11 +136,13 @@ void Wallet::start(Callback<> done) {
 }
 
 QString Wallet::getUsedAddress(const QByteArray &publicKey) const {
-	return getUsedAddress(getUsedInitialAccountState(publicKey));
+	const auto [state, revision] = getUsedInitialAccountState(publicKey);
+	return getUsedAddress(state, revision);
 }
 
-TLinitialAccountState Wallet::getUsedInitialAccountState(
-		const QByteArray &publicKey) const {
+auto Wallet::getUsedInitialAccountState(
+	const QByteArray &publicKey) const
+-> std::pair<details::TLinitialAccountState, int> {
 	Expects(_configInfo.has_value());
 
 	const auto i = ranges::find(
@@ -150,7 +150,7 @@ TLinitialAccountState Wallet::getUsedInitialAccountState(
 		publicKey,
 		&WalletList::Entry::publicKey);
 	Assert(i != end(_list->entries));
-	return i->restrictedInitPublicKey.isEmpty()
+	const auto state = i->restrictedInitPublicKey.isEmpty()
 		? tl_wallet_v3_initialAccountState(
 			tl_string(publicKey),
 			tl_int64(_configInfo->walletId))
@@ -158,12 +158,15 @@ TLinitialAccountState Wallet::getUsedInitialAccountState(
 			tl_string(i->restrictedInitPublicKey),
 			tl_string(publicKey),
 			tl_int64(_configInfo->walletId));
+	return std::make_pair(state, i->revision);
 }
 
-QString Wallet::getUsedAddress(const TLinitialAccountState &state) const {
+QString Wallet::getUsedAddress(
+		const TLinitialAccountState &state,
+		int revision) const {
 	return RequestSender::Execute(TLGetAccountAddress(
 		state,
-		tl_int32(SmcRevision(state))
+		tl_int32(revision)
 	)).value_or(
 		tl_accountAddress(tl_string())
 	).match([&](const TLDaccountAddress &data) {
@@ -280,23 +283,25 @@ void Wallet::importKey(const std::vector<QString> &words, Callback<> done) {
 		std::move(created));
 }
 
-void Wallet::queryRestrictedInitPublicKey(Callback<QByteArray> done) {
+void Wallet::queryWalletDetails(Callback<WalletDetails> done) {
 	Expects(_keyCreator != nullptr);
 	Expects(_configInfo.has_value());
 
-	_keyCreator->queryRestrictedInitPublicKey(
-		getUsedAddress(
-			tl_rwallet_initialAccountState(
-				tl_string(_configInfo->restrictedInitPublicKey),
-				tl_string(_keyCreator->key()),
-				tl_int64(_configInfo->walletId))),
+	_keyCreator->queryWalletDetails(
+		tl_wallet_v3_initialAccountState(
+			tl_string(_keyCreator->key()),
+			tl_int64(_configInfo->walletId)),
+		tl_rwallet_initialAccountState(
+			tl_string(_configInfo->restrictedInitPublicKey),
+			tl_string(_keyCreator->key()),
+			tl_int64(_configInfo->walletId)),
 		_configInfo->restrictedInitPublicKey,
 		std::move(done));
 }
 
 void Wallet::saveKey(
 		const QByteArray &password,
-		const QByteArray &restrictedInitPublicKey,
+		WalletDetails details,
 		Callback<QByteArray> done) {
 	Expects(_keyCreator != nullptr);
 
@@ -309,10 +314,18 @@ void Wallet::saveKey(
 		_list->entries.push_back(*result);
 		InvokeCallback(done, result->publicKey);
 	};
+	if (!details.restrictedInitPublicKey.isEmpty()) {
+		Assert(details.revision != 0);
+	} else if (!details.revision) {
+		details.revision = DefaultSmcRevision(
+			tl_wallet_v3_initialAccountState(
+				tl_string(_keyCreator->key()),
+				tl_int64(_configInfo->walletId)));
+	}
 	_keyCreator->save(
 		password,
 		*_list,
-		restrictedInitPublicKey,
+		details,
 		settings().useTestNetwork,
 		std::move(saved));
 }
@@ -451,8 +464,8 @@ void Wallet::checkSendGrams(
 		Callback<TransactionCheckResult> done) {
 	Expects(transaction.amount >= 0);
 
-	const auto initial = getUsedInitialAccountState(publicKey);
-	const auto sender = getUsedAddress(initial);
+	const auto [initial, revision] = getUsedInitialAccountState(publicKey);
+	const auto sender = getUsedAddress(initial, revision);
 	Assert(!sender.isEmpty());
 
 	const auto check = [=](int64 id) {
@@ -500,8 +513,8 @@ void Wallet::sendGrams(
 		Callback<> done) {
 	Expects(transaction.amount >= 0);
 
-	const auto initial = getUsedInitialAccountState(publicKey);
-	const auto sender = getUsedAddress(initial);
+	const auto [initial, revision] = getUsedInitialAccountState(publicKey);
+	const auto sender = getUsedAddress(initial, revision);
 	Assert(!sender.isEmpty());
 
 	const auto send = [=](int64 id) {

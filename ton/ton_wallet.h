@@ -33,6 +33,7 @@ class TLinitialAccountState;
 
 struct Settings;
 class AccountViewer;
+struct WalletDetails;
 
 class Wallet final : public base::has_weak_ptr {
 public:
@@ -58,10 +59,10 @@ public:
 
 	void createKey(Callback<std::vector<QString>> done);
 	void importKey(const std::vector<QString> &words, Callback<> done);
-	void queryRestrictedInitPublicKey(Callback<QByteArray> done);
+	void queryWalletDetails(Callback<WalletDetails> done);
 	void saveKey(
 		const QByteArray &password,
-		const QByteArray &restrictedInitPublicKey,
+		WalletDetails details,
 		Callback<QByteArray> done);
 	void exportKey(
 		const QByteArray &publicKey,
@@ -132,10 +133,12 @@ private:
 	void notifyPasswordGood(const QByteArray &publicKey, int generation);
 	void checkPasswordsExpiration();
 
-	[[nodiscard]] details::TLinitialAccountState getUsedInitialAccountState(
-		const QByteArray &publicKey) const;
+	[[nodiscard]] auto getUsedInitialAccountState(
+		const QByteArray &publicKey) const
+		-> std::pair<details::TLinitialAccountState, int>;
 	[[nodiscard]] QString getUsedAddress(
-		const details::TLinitialAccountState &state) const;
+		const details::TLinitialAccountState &state,
+		int revision) const;
 
 	void handleInputKeyError(
 		const QByteArray &publicKey,

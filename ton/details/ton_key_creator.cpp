@@ -102,23 +102,42 @@ QByteArray KeyCreator::key() const {
 	return _key;
 }
 
-void KeyCreator::queryRestrictedInitPublicKey(
-		const QString &address,
+void KeyCreator::queryWalletDetails(
+		const TLinitialAccountState &state,
+		const TLinitialAccountState &restrictedState,
 		const QByteArray &restrictedInitPublicKey,
-		Callback<QByteArray> done) {
+		Callback<WalletDetails> done) {
 	Expects(!_key.isEmpty());
 
-	_lib->request(TLGetAccountState(
-		tl_accountAddress(tl_string(address))
-	)).done([=](const TLFullAccountState &result) {
-		result.match([&](const TLDfullAccountState &data) {
-			data.vaccount_state().match([&](
-					const TLDrwallet_accountState &) {
-				InvokeCallback(done, restrictedInitPublicKey);
-			}, [&](const auto &) {
-				InvokeCallback(done, QByteArray());
-			});
+	_lib->request(TLGuessAccountRevision(
+		restrictedState
+	)).done([=](const TLAccountRevisionList &result) {
+		result.match([&](const TLDaccountRevisionList &data) {
+			for (const auto &revision : data.vrevisions().v) {
+				InvokeCallback(
+					done,
+					WalletDetails{
+						.restrictedInitPublicKey = restrictedInitPublicKey,
+						.revision = revision.v
+					});
+				return;
+			}
 		});
+		_lib->request(TLGuessAccountRevision(
+			state
+		)).done([=](const TLAccountRevisionList &result) {
+			result.match([&](const TLDaccountRevisionList &data) {
+				for (const auto &revision : data.vrevisions().v) {
+					InvokeCallback(
+						done,
+						WalletDetails{ .revision = revision.v });
+					return;
+				}
+				InvokeCallback(done, WalletDetails());
+			});
+		}).fail([=](const TLError &error) {
+			InvokeCallback(done, ErrorFromLib(error));
+		}).send();
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
 	}).send();
@@ -127,10 +146,10 @@ void KeyCreator::queryRestrictedInitPublicKey(
 void KeyCreator::save(
 		const QByteArray &password,
 		const WalletList &existing,
-		const QByteArray &restrictedInitPublicKey,
+		const WalletDetails &details,
 		bool useTestNetwork,
 		Callback<WalletList::Entry> done) {
-	_restrictedInitPublicKey = restrictedInitPublicKey;
+	_details = details;
 	if (_password != password) {
 		changePassword(password, [=](Result<> result) {
 			_state = State::Created;
@@ -157,7 +176,8 @@ void KeyCreator::saveToDatabase(
 	const auto added = WalletList::Entry{
 		.publicKey = _key,
 		.secret = _secret,
-		.restrictedInitPublicKey = _restrictedInitPublicKey
+		.restrictedInitPublicKey = _details.restrictedInitPublicKey,
+		.revision = _details.revision
 	};
 	existing.entries.push_back(added);
 	const auto saved = [=](Result<> result) {

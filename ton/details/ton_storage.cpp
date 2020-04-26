@@ -100,28 +100,42 @@ bool Deserialize(const TLstorage_Bool &data) {
 }
 
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data) {
-	return data.restrictedInitPublicKey.isEmpty()
-		? make_storage_walletEntry(
-			tl_string(data.publicKey),
-			tl_bytes(data.secret))
-		: make_storage_walletEntryRestricted(
-			tl_string(data.restrictedInitPublicKey),
-			tl_string(data.publicKey),
-			tl_bytes(data.secret));
+	const auto restricted = !data.restrictedInitPublicKey.isEmpty();
+	return make_storage_walletEntryGeneric(
+		tl_string(data.publicKey),
+		tl_bytes(data.secret),
+		tl_int32(data.revision),
+		(restricted
+			? make_storage_walletDetailsRestricted(
+				tl_string(data.restrictedInitPublicKey))
+			: make_storage_walletDetailsNormal()));
 }
 
 WalletList::Entry Deserialize(const TLstorage_WalletEntry &data) {
 	return data.match([&](const TLDstorage_walletEntry &data) {
 		return WalletList::Entry{
 			.publicKey = data.vpublicKey().v,
-			.secret = data.vsecret().v
+			.secret = data.vsecret().v,
+			.revision = 1
 		};
 	}, [&](const TLDstorage_walletEntryRestricted &data) {
 		return WalletList::Entry{
 			.publicKey = data.vpublicKey().v,
 			.secret = data.vsecret().v,
 			.restrictedInitPublicKey = data.vinitPublicKey().v,
+			.revision = 1
 		};
+	}, [&](const TLDstorage_walletEntryGeneric &data) {
+		auto result = WalletList::Entry{
+			.publicKey = data.vpublicKey().v,
+			.secret = data.vsecret().v,
+			.revision = data.vrevision().v
+		};
+		data.vdetails().match([&](const TLDstorage_walletDetailsNormal &) {
+		}, [&](const TLDstorage_walletDetailsRestricted &data) {
+			result.restrictedInitPublicKey = data.vinitPublicKey().v;
+		});
+		return result;
 	});
 }
 

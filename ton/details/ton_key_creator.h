@@ -8,6 +8,7 @@
 
 #include "ton/details/ton_external.h"
 #include "ton/details/ton_storage.h"
+#include "ton/ton_state.h"
 
 namespace Storage::Cache {
 class Database;
@@ -30,14 +31,15 @@ public:
 		Fn<void(Result<>)> done);
 
 	[[nodiscard]] QByteArray key() const;
-	void queryRestrictedInitPublicKey(
-		const QString &address,
+	void queryWalletDetails(
+		const TLinitialAccountState &state,
+		const TLinitialAccountState &restrictedState,
 		const QByteArray &restrictedInitPublicKey,
-		Callback<QByteArray> done);
+		Callback<WalletDetails> done);
 	void save(
 		const QByteArray &password,
 		const WalletList &existing,
-		const QByteArray &restrictedInitPublicKey,
+		const WalletDetails &details,
 		bool useTestNetwork,
 		Callback<WalletList::Entry> done);
 
@@ -62,7 +64,7 @@ private:
 	State _state = State::Creating;
 	QByteArray _key;
 	QByteArray _secret;
-	QByteArray _restrictedInitPublicKey;
+	WalletDetails _details;
 	QByteArray _password;
 
 };
