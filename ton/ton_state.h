@@ -91,6 +91,7 @@ struct Transaction {
 	int64 otherFee = 0;
 	Message incoming;
 	std::vector<Message> outgoing;
+	bool initializing = false;
 };
 
 bool operator==(const Transaction &a, const Transaction &b);
