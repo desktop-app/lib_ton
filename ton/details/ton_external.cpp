@@ -193,6 +193,7 @@ void External::updateSettings(
 		const auto saved = [=](Result<> result) {
 			if (!result) {
 				InvokeCallback(done, result.error());
+				return;
 			}
 			InvokeCallback(done, parsed);
 		};
@@ -205,7 +206,14 @@ void External::updateSettings(
 void External::switchNetwork(Callback<ConfigInfo> done) {
 	_settings.useTestNetwork = !_settings.useTestNetwork;
 
-	updateSettings(_settings, std::move(done));
+	updateSettings(_settings, [=](Result<ConfigInfo> result) {
+		if (!result) {
+			_settings.useTestNetwork = !_settings.useTestNetwork;
+			InvokeCallback(done, result.error());
+			return;
+		}
+		InvokeCallback(done, *result);
+	});
 }
 
 void External::resetNetwork() {
