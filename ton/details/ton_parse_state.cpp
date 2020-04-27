@@ -35,6 +35,9 @@ namespace {
 	return result;
 }
 
+constexpr auto kTestRestrictedInitPublicKey
+	= "PuYcgC80F-MUPMI9Y_Gd0NhVrkYm_5_6vXFUqdArH7Uo4Y6P";
+
 } // namespace
 
 ConfigInfo Parse(const TLoptions_ConfigInfo &data) {
@@ -43,6 +46,8 @@ ConfigInfo Parse(const TLoptions_ConfigInfo &data) {
 			.walletId = data.vdefault_wallet_id().v,
 			.restrictedInitPublicKey = tl::utf8(
 				data.vdefault_rwallet_init_public_key())
+			//.restrictedInitPublicKey = kTestRestrictedInitPublicKey
+			//AssertIsDebug()
 		};
 	});
 }

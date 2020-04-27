@@ -16,6 +16,7 @@ namespace Ton::details {
 namespace {
 
 inline constexpr auto kLocalPasswordSize = size_type(32);
+inline constexpr auto kRestrictedWalletRevision = 1;
 
 [[nodiscard]] QByteArray GenerateLocalPassword() {
 	auto result = QByteArray(kLocalPasswordSize, Qt::Uninitialized);
@@ -109,34 +110,44 @@ void KeyCreator::queryWalletDetails(
 		Callback<WalletDetails> done) {
 	Expects(!_key.isEmpty());
 
-	_lib->request(TLGuessAccountRevision(
-		restrictedState
-	)).done([=](const TLAccountRevisionList &result) {
-		result.match([&](const TLDaccountRevisionList &data) {
-			for (const auto &revision : data.vrevisions().v) {
+	const auto address = RequestSender::Execute(TLGetAccountAddress(
+		restrictedState,
+		tl_int32(kRestrictedWalletRevision)
+	)).value_or(
+		tl_accountAddress(tl_string())
+	).match([&](const TLDaccountAddress &data) {
+		return tl::utf16(data.vaccount_address());
+	});
+
+	_lib->request(TLGetAccountState(
+		tl_accountAddress(tl_string(address))
+	)).done([=](const TLFullAccountState &result) {
+		result.match([&](const TLDfullAccountState &data) {
+			data.vaccount_state().match([&](
+					const TLDrwallet_accountState &) {
 				InvokeCallback(
 					done,
 					WalletDetails{
 						.restrictedInitPublicKey = restrictedInitPublicKey,
-						.revision = revision.v
+						.revision = kRestrictedWalletRevision
 					});
-				return;
-			}
-			_lib->request(TLGuessAccountRevision(
-				state
-			)).done([=](const TLAccountRevisionList &result) {
-				result.match([&](const TLDaccountRevisionList &data) {
-					for (const auto &revision : data.vrevisions().v) {
-						InvokeCallback(
-							done,
-							WalletDetails{ .revision = revision.v });
-						return;
-					}
-					InvokeCallback(done, WalletDetails());
-				});
-			}).fail([=](const TLError &error) {
-				InvokeCallback(done, ErrorFromLib(error));
-			}).send();
+			}, [&](const auto &) {
+				_lib->request(TLGuessAccountRevision(
+					state
+				)).done([=](const TLAccountRevisionList &result) {
+					result.match([&](const TLDaccountRevisionList &data) {
+						for (const auto &revision : data.vrevisions().v) {
+							InvokeCallback(
+								done,
+								WalletDetails{ .revision = revision.v });
+							return;
+						}
+						InvokeCallback(done, WalletDetails());
+					});
+				}).fail([=](const TLError &error) {
+					InvokeCallback(done, ErrorFromLib(error));
+				}).send();
+			});
 		});
 	}).fail([=](const TLError &error) {
 		InvokeCallback(done, ErrorFromLib(error));
