@@ -31,17 +31,13 @@ public:
 		Fn<void(Result<>)> done);
 
 	[[nodiscard]] QByteArray key() const;
-	void queryWalletDetails(
-		const TLinitialAccountState &state,
-		int workchainId,
-		const TLinitialAccountState &restrictedState,
-		int restrictedWorkchainId,
+	void queryWalletAddress(
 		const QByteArray &restrictedInitPublicKey,
-		Callback<WalletDetails> done);
+		Callback<QString> done);
 	void save(
 		const QByteArray &password,
 		const WalletList &existing,
-		const WalletDetails &details,
+		const QString &address,
 		bool useTestNetwork,
 		Callback<WalletList::Entry> done);
 
@@ -66,7 +62,7 @@ private:
 	State _state = State::Creating;
 	QByteArray _key;
 	QByteArray _secret;
-	WalletDetails _details;
+	QString _address;
 	QByteArray _password;
 
 };

@@ -17,12 +17,6 @@ struct ConfigInfo {
 	QByteArray restrictedInitPublicKey;
 };
 
-struct WalletDetails {
-	QByteArray restrictedInitPublicKey;
-	int32 revision = 0;
-	int32 workchainId = 0;
-};
-
 struct TransactionId {
 	int64 lt = 0;
 	QByteArray hash;

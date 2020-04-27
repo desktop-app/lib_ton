@@ -32,9 +32,7 @@ struct WalletList {
 	struct Entry {
 		QByteArray publicKey;
 		QByteArray secret;
-		QByteArray restrictedInitPublicKey;
-		int32 revision = 0;
-		int32 workchainId = 0;
+		QString address;
 	};
 	std::vector<Entry> entries;
 };

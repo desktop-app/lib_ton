@@ -103,58 +103,27 @@ QByteArray KeyCreator::key() const {
 	return _key;
 }
 
-void KeyCreator::queryWalletDetails(
-		const TLinitialAccountState &state,
-		int workchainId,
-		const TLinitialAccountState &restrictedState,
-		int restrictedWorkchainId,
+void KeyCreator::queryWalletAddress(
 		const QByteArray &restrictedInitPublicKey,
-		Callback<WalletDetails> done) {
+		Callback<QString> done) {
 	Expects(!_key.isEmpty());
 
-	const auto address = RequestSender::Execute(TLGetAccountAddress(
-		restrictedState,
-		tl_int32(kRestrictedWalletRevision),
-		tl_int32(restrictedWorkchainId)
-	)).value_or(
-		tl_accountAddress(tl_string())
-	).match([&](const TLDaccountAddress &data) {
-		return tl::utf16(data.vaccount_address());
-	});
-
-	_lib->request(TLGetAccountState(
-		tl_accountAddress(tl_string(address))
-	)).done([=](const TLFullAccountState &result) {
-		result.match([&](const TLDfullAccountState &data) {
-			data.vaccount_state().match([&](
-					const TLDrwallet_accountState &) {
-				InvokeCallback(
-					done,
-					WalletDetails{
-						.restrictedInitPublicKey = restrictedInitPublicKey,
-						.revision = kRestrictedWalletRevision,
-						.workchainId = restrictedWorkchainId,
-					});
-			}, [&](const auto &) {
-				_lib->request(TLGuessAccountRevision(
-					state//, #TODO workchainId here
-					//tl_int32(workchainId)
-				)).done([=](const TLAccountRevisionList &result) {
-					result.match([&](const TLDaccountRevisionList &data) {
-						for (const auto &revision : data.vrevisions().v) {
-							InvokeCallback(
-								done,
-								WalletDetails{
-									.revision = revision.v,
-									.workchainId = workchainId,
-								});
-							return;
-						}
-						InvokeCallback(done, WalletDetails());
-					});
-				}).fail([=](const TLError &error) {
-					InvokeCallback(done, ErrorFromLib(error));
-				}).send();
+	_lib->request(TLGuessAccount(
+		tl_string(_key),
+		tl_string(restrictedInitPublicKey)
+	)).done([=](const TLAccountRevisionList &result) {
+		result.match([&](const TLDaccountRevisionList &data) {
+			const auto list = data.vrevisions().v;
+			if (list.isEmpty()) {
+				InvokeCallback(done, QString());
+				return;
+			}
+			list.front().match([&](const TLDfullAccountState &data) {
+				const auto address = data.vaddress().match([&](
+						const TLDaccountAddress &data) {
+					return tl::utf16(data.vaccount_address());
+				});
+				InvokeCallback(done, address);
 			});
 		});
 	}).fail([=](const TLError &error) {
@@ -165,10 +134,10 @@ void KeyCreator::queryWalletDetails(
 void KeyCreator::save(
 		const QByteArray &password,
 		const WalletList &existing,
-		const WalletDetails &details,
+		const QString &address,
 		bool useTestNetwork,
 		Callback<WalletList::Entry> done) {
-	_details = details;
+	_address = address;
 	if (_password != password) {
 		changePassword(password, [=](Result<> result) {
 			_state = State::Created;
@@ -195,9 +164,7 @@ void KeyCreator::saveToDatabase(
 	const auto added = WalletList::Entry{
 		.publicKey = _key,
 		.secret = _secret,
-		.restrictedInitPublicKey = _details.restrictedInitPublicKey,
-		.revision = _details.revision,
-		.workchainId = _details.workchainId
+		.address = _address,
 	};
 	existing.entries.push_back(added);
 	const auto saved = [=](Result<> result) {

@@ -33,7 +33,6 @@ struct UnpackedAddress;
 
 struct Settings;
 class AccountViewer;
-struct WalletDetails;
 
 class Wallet final : public base::has_weak_ptr {
 public:
@@ -59,10 +58,10 @@ public:
 
 	void createKey(Callback<std::vector<QString>> done);
 	void importKey(const std::vector<QString> &words, Callback<> done);
-	void queryWalletDetails(Callback<WalletDetails> done);
+	void queryWalletAddress(Callback<QString> done);
 	void saveKey(
 		const QByteArray &password,
-		WalletDetails details,
+		const QString &address,
 		Callback<QByteArray> done);
 	void exportKey(
 		const QByteArray &publicKey,
@@ -132,11 +131,9 @@ private:
 	void checkLocalTime(details::BlockchainTime time);
 	void notifyPasswordGood(const QByteArray &publicKey, int generation);
 	void checkPasswordsExpiration();
-
-	[[nodiscard]] details::UnpackedAddress getUsedInitialAccountState(
-		const QByteArray &publicKey) const;
-	[[nodiscard]] QString getUsedAddress(
-		const details::UnpackedAddress &unpacked) const;
+	[[nodiscard]] QString getDefaultAddress(
+		const QByteArray &publicKey,
+		int revision) const;
 
 	void handleInputKeyError(
 		const QByteArray &publicKey,

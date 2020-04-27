@@ -100,25 +100,10 @@ bool Deserialize(const TLstorage_Bool &data) {
 }
 
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data) {
-	const auto restricted = !data.restrictedInitPublicKey.isEmpty();
-	return make_storage_walletEntry2(
+	return make_storage_walletEntryGeneric(
 		tl_string(data.publicKey),
 		tl_bytes(data.secret),
-		tl_int32(data.revision),
-		tl_int32(data.workchainId),
-		(restricted
-			? make_storage_walletDetailsRestricted(
-				tl_string(data.restrictedInitPublicKey))
-			: make_storage_walletDetailsNormal()));
-}
-
-void ApplyWalletEntryDetails(
-		WalletList::Entry &entry,
-		const TLstorage_WalletEntryDetails &details) {
-	details.match([&](const TLDstorage_walletDetailsNormal &) {
-	}, [&](const TLDstorage_walletDetailsRestricted &data) {
-		entry.restrictedInitPublicKey = data.vinitPublicKey().v;
-	});
+		tl_string(data.address));
 }
 
 WalletList::Entry Deserialize(const TLstorage_WalletEntry &data) {
@@ -126,35 +111,13 @@ WalletList::Entry Deserialize(const TLstorage_WalletEntry &data) {
 		return WalletList::Entry{
 			.publicKey = data.vpublicKey().v,
 			.secret = data.vsecret().v,
-			.revision = 1,
-			.workchainId = 0,
 		};
-	}, [&](const TLDstorage_walletEntryRestricted &data) {
+	}, [&](const TLDstorage_walletEntryGeneric &data) {
 		return WalletList::Entry{
 			.publicKey = data.vpublicKey().v,
 			.secret = data.vsecret().v,
-			.restrictedInitPublicKey = data.vinitPublicKey().v,
-			.revision = 1,
-			.workchainId = 0,
+			.address = tl::utf16(data.vaddress()),
 		};
-	}, [&](const TLDstorage_walletEntryGeneric &data) {
-		auto result = WalletList::Entry{
-			.publicKey = data.vpublicKey().v,
-			.secret = data.vsecret().v,
-			.revision = data.vrevision().v,
-			.workchainId = 0,
-		};
-		ApplyWalletEntryDetails(result, data.vdetails());
-		return result;
-	}, [&](const TLDstorage_walletEntry2 &data) {
-		auto result = WalletList::Entry{
-			.publicKey = data.vpublicKey().v,
-			.secret = data.vsecret().v,
-			.revision = data.vrevision().v,
-			.workchainId = data.vworkchainId().v,
-		};
-		ApplyWalletEntryDetails(result, data.vdetails());
-		return result;
 	});
 }
 
