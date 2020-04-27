@@ -46,7 +46,25 @@ constexpr auto kViewersPasswordExpires = 15 * 60 * crl::time(1000);
 	});
 }
 
+[[nodiscard]] int DefaultWorkchainId_wallet_v3() {
+	return 0;
+}
+
+[[nodiscard]] int DefaultWorkchainId_rwallet() {
+	return -1;
+}
+
 } // namespace
+
+namespace details {
+
+struct UnpackedAddress {
+	TLinitialAccountState state;
+	int32 revision = 0;
+	int32 workchainId = 0;
+};
+
+} // namespace details
 
 Wallet::Wallet(const QString &path)
 : _external(std::make_unique<External>(path, generateUpdatesCallback()))
@@ -136,13 +154,11 @@ void Wallet::start(Callback<> done) {
 }
 
 QString Wallet::getUsedAddress(const QByteArray &publicKey) const {
-	const auto [state, revision] = getUsedInitialAccountState(publicKey);
-	return getUsedAddress(state, revision);
+	return getUsedAddress(getUsedInitialAccountState(publicKey));
 }
 
-auto Wallet::getUsedInitialAccountState(
-	const QByteArray &publicKey) const
--> std::pair<details::TLinitialAccountState, int> {
+UnpackedAddress Wallet::getUsedInitialAccountState(
+		const QByteArray &publicKey) const {
 	Expects(_configInfo.has_value());
 
 	const auto i = ranges::find(
@@ -153,20 +169,24 @@ auto Wallet::getUsedInitialAccountState(
 	const auto state = i->restrictedInitPublicKey.isEmpty()
 		? tl_wallet_v3_initialAccountState(
 			tl_string(publicKey),
-			tl_int64(_configInfo->walletId))
+			tl_int64(_configInfo->walletId + i->workchainId))
 		: tl_rwallet_initialAccountState(
 			tl_string(i->restrictedInitPublicKey),
 			tl_string(publicKey),
-			tl_int64(_configInfo->walletId));
-	return std::make_pair(state, i->revision);
+			tl_int64(_configInfo->walletId + i->workchainId));
+	return UnpackedAddress{
+		.state = state,
+		.revision = i->revision,
+		.workchainId = i->workchainId
+	};
 }
 
 QString Wallet::getUsedAddress(
-		const TLinitialAccountState &state,
-		int revision) const {
+		const details::UnpackedAddress &unpacked) const {
 	return RequestSender::Execute(TLGetAccountAddress(
-		state,
-		tl_int32(revision)
+		unpacked.state,
+		tl_int32(unpacked.revision),
+		tl_int32(unpacked.workchainId)
 	)).value_or(
 		tl_accountAddress(tl_string())
 	).match([&](const TLDaccountAddress &data) {
@@ -287,14 +307,20 @@ void Wallet::queryWalletDetails(Callback<WalletDetails> done) {
 	Expects(_keyCreator != nullptr);
 	Expects(_configInfo.has_value());
 
+	const auto workchainId = DefaultWorkchainId_wallet_v3();
+	const auto state = tl_wallet_v3_initialAccountState(
+		tl_string(_keyCreator->key()),
+		tl_int64(_configInfo->walletId + workchainId));
+	const auto restrictedWorkchainId = DefaultWorkchainId_rwallet();
+	const auto restrictedState = tl_rwallet_initialAccountState(
+		tl_string(_configInfo->restrictedInitPublicKey),
+		tl_string(_keyCreator->key()),
+		tl_int64(_configInfo->walletId + restrictedWorkchainId));
 	_keyCreator->queryWalletDetails(
-		tl_wallet_v3_initialAccountState(
-			tl_string(_keyCreator->key()),
-			tl_int64(_configInfo->walletId)),
-		tl_rwallet_initialAccountState(
-			tl_string(_configInfo->restrictedInitPublicKey),
-			tl_string(_keyCreator->key()),
-			tl_int64(_configInfo->walletId)),
+		state,
+		workchainId,
+		restrictedState,
+		restrictedWorkchainId,
 		_configInfo->restrictedInitPublicKey,
 		std::move(done));
 }
@@ -317,10 +343,11 @@ void Wallet::saveKey(
 	if (!details.restrictedInitPublicKey.isEmpty()) {
 		Assert(details.revision != 0);
 	} else if (!details.revision) {
-		details.revision = DefaultSmcRevision(
-			tl_wallet_v3_initialAccountState(
-				tl_string(_keyCreator->key()),
-				tl_int64(_configInfo->walletId)));
+		details.workchainId = DefaultWorkchainId_wallet_v3();
+		const auto state = tl_wallet_v3_initialAccountState(
+			tl_string(_keyCreator->key()),
+			tl_int64(_configInfo->walletId + details.workchainId));
+		details.revision = DefaultSmcRevision(state);
 	}
 	_keyCreator->save(
 		password,
@@ -464,8 +491,8 @@ void Wallet::checkSendGrams(
 		Callback<TransactionCheckResult> done) {
 	Expects(transaction.amount >= 0);
 
-	const auto [initial, revision] = getUsedInitialAccountState(publicKey);
-	const auto sender = getUsedAddress(initial, revision);
+	const auto unpacked = getUsedInitialAccountState(publicKey);
+	const auto sender = getUsedAddress(unpacked);
 	Assert(!sender.isEmpty());
 
 	const auto check = [=](int64 id) {
@@ -495,7 +522,7 @@ void Wallet::checkSendGrams(
 					: tl_msg_dataDecryptedText)(
 						tl_string(transaction.comment)))),
 			tl_from(transaction.allowSendToUninited)),
-		initial
+		unpacked.state
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			check(data.vid().v);
@@ -513,8 +540,8 @@ void Wallet::sendGrams(
 		Callback<> done) {
 	Expects(transaction.amount >= 0);
 
-	const auto [initial, revision] = getUsedInitialAccountState(publicKey);
-	const auto sender = getUsedAddress(initial, revision);
+	const auto unpacked = getUsedInitialAccountState(publicKey);
+	const auto sender = getUsedAddress(unpacked);
 	Assert(!sender.isEmpty());
 
 	const auto send = [=](int64 id) {
@@ -541,7 +568,7 @@ void Wallet::sendGrams(
 					: tl_msg_dataDecryptedText)(
 						tl_string(transaction.comment)))),
 			tl_from(transaction.allowSendToUninited)),
-		initial
+		unpacked.state
 	)).done([=](const TLquery_Info &result) {
 		result.match([&](const TLDquery_info &data) {
 			const auto weak = base::make_weak(this);

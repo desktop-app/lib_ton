@@ -15,8 +15,8 @@
 namespace Ton::details {
 namespace {
 
-inline constexpr auto kLocalPasswordSize = size_type(32);
-inline constexpr auto kRestrictedWalletRevision = 1;
+constexpr auto kLocalPasswordSize = size_type(32);
+constexpr auto kRestrictedWalletRevision = 1;
 
 [[nodiscard]] QByteArray GenerateLocalPassword() {
 	auto result = QByteArray(kLocalPasswordSize, Qt::Uninitialized);
@@ -105,14 +105,17 @@ QByteArray KeyCreator::key() const {
 
 void KeyCreator::queryWalletDetails(
 		const TLinitialAccountState &state,
+		int workchainId,
 		const TLinitialAccountState &restrictedState,
+		int restrictedWorkchainId,
 		const QByteArray &restrictedInitPublicKey,
 		Callback<WalletDetails> done) {
 	Expects(!_key.isEmpty());
 
 	const auto address = RequestSender::Execute(TLGetAccountAddress(
 		restrictedState,
-		tl_int32(kRestrictedWalletRevision)
+		tl_int32(kRestrictedWalletRevision),
+		tl_int32(restrictedWorkchainId)
 	)).value_or(
 		tl_accountAddress(tl_string())
 	).match([&](const TLDaccountAddress &data) {
@@ -129,17 +132,22 @@ void KeyCreator::queryWalletDetails(
 					done,
 					WalletDetails{
 						.restrictedInitPublicKey = restrictedInitPublicKey,
-						.revision = kRestrictedWalletRevision
+						.revision = kRestrictedWalletRevision,
+						.workchainId = restrictedWorkchainId,
 					});
 			}, [&](const auto &) {
 				_lib->request(TLGuessAccountRevision(
-					state
+					state//, #TODO workchainId here
+					//tl_int32(workchainId)
 				)).done([=](const TLAccountRevisionList &result) {
 					result.match([&](const TLDaccountRevisionList &data) {
 						for (const auto &revision : data.vrevisions().v) {
 							InvokeCallback(
 								done,
-								WalletDetails{ .revision = revision.v });
+								WalletDetails{
+									.revision = revision.v,
+									.workchainId = workchainId,
+								});
 							return;
 						}
 						InvokeCallback(done, WalletDetails());
@@ -188,7 +196,8 @@ void KeyCreator::saveToDatabase(
 		.publicKey = _key,
 		.secret = _secret,
 		.restrictedInitPublicKey = _details.restrictedInitPublicKey,
-		.revision = _details.revision
+		.revision = _details.revision,
+		.workchainId = _details.workchainId
 	};
 	existing.entries.push_back(added);
 	const auto saved = [=](Result<> result) {

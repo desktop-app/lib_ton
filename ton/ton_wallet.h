@@ -28,7 +28,7 @@ class LocalTimeSyncer;
 struct BlockchainTime;
 class TLerror;
 class TLinputKey;
-class TLinitialAccountState;
+struct UnpackedAddress;
 } // namespace details
 
 struct Settings;
@@ -133,12 +133,10 @@ private:
 	void notifyPasswordGood(const QByteArray &publicKey, int generation);
 	void checkPasswordsExpiration();
 
-	[[nodiscard]] auto getUsedInitialAccountState(
-		const QByteArray &publicKey) const
-		-> std::pair<details::TLinitialAccountState, int>;
+	[[nodiscard]] details::UnpackedAddress getUsedInitialAccountState(
+		const QByteArray &publicKey) const;
 	[[nodiscard]] QString getUsedAddress(
-		const details::TLinitialAccountState &state,
-		int revision) const;
+		const details::UnpackedAddress &unpacked) const;
 
 	void handleInputKeyError(
 		const QByteArray &publicKey,

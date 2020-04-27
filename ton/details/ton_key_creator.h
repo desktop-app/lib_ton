@@ -33,7 +33,9 @@ public:
 	[[nodiscard]] QByteArray key() const;
 	void queryWalletDetails(
 		const TLinitialAccountState &state,
+		int workchainId,
 		const TLinitialAccountState &restrictedState,
+		int restrictedWorkchainId,
 		const QByteArray &restrictedInitPublicKey,
 		Callback<WalletDetails> done);
 	void save(
