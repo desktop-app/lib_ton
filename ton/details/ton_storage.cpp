@@ -38,6 +38,12 @@ constexpr auto kWalletMainListKey = Storage::Cache::Key{ 1ULL, 2ULL };
 	return { 0x2ULL | (a & 0xFFFFFFFFFFFF0000ULL), b };
 }
 
+[[nodiscard]] QString ConvertLegacyUrl(const QString &configUrl) {
+	return (configUrl == "https://test.ton.org/config.json")
+		? "https://ton.org/config-test.json"
+		: configUrl;
+}
+
 TLstorage_Bool Serialize(const bool &data);
 bool Deserialize(const TLstorage_Bool &data);
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data);
@@ -360,7 +366,7 @@ Settings Deserialize(const TLstorage_Settings &data) {
 		return Settings{
 			.test = NetSettings{
 				.blockchainName = tl::utf16(data.vblockchainName()),
-				.configUrl = tl::utf16(data.vconfigUrl()),
+				.configUrl = ConvertLegacyUrl(tl::utf16(data.vconfigUrl())),
 				.config = tl::utf8(data.vconfig()),
 				.useCustomConfig = Deserialize(data.vuseCustomConfig())
 			},
@@ -372,7 +378,7 @@ Settings Deserialize(const TLstorage_Settings &data) {
 		return Settings{
 			.test = NetSettings{
 				.blockchainName = tl::utf16(data.vblockchainName()),
-				.configUrl = tl::utf16(data.vconfigUrl()),
+				.configUrl = ConvertLegacyUrl(tl::utf16(data.vconfigUrl())),
 				.config = tl::utf8(data.vconfig()),
 				.useCustomConfig = Deserialize(data.vuseCustomConfig())
 			},
