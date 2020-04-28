@@ -11,7 +11,8 @@ namespace {
 
 [[nodiscard]] bool IsAutoResendError(
 		const tonlib_api::object_ptr<tonlib_api::error> &error) {
-	return (error->message_.find("LITE_SERVER_NETWORK") == 0);
+	return (error->message_.find("LITE_SERVER_NETWORK") == 0)
+		|| (error->message_ == "CANCELLED");
 }
 
 [[nodiscard]] Fn<void(Client::LibUpdate)> ConvertUpdateCallback(
