@@ -44,6 +44,10 @@ constexpr auto kWalletMainListKey = Storage::Cache::Key{ 1ULL, 2ULL };
 		: configUrl;
 }
 
+[[nodiscard]] QString ConvertLegacyTestBlockchainName(const QString &name) {
+	return (name == "mainnet") ? "mainnet-test" : name;
+}
+
 TLstorage_Bool Serialize(const bool &data);
 bool Deserialize(const TLstorage_Bool &data);
 TLstorage_WalletEntry Serialize(const WalletList::Entry &data);
@@ -365,7 +369,8 @@ Settings Deserialize(const TLstorage_Settings &data) {
 	return data.match([&](const TLDstorage_settings &data) {
 		return Settings{
 			.test = NetSettings{
-				.blockchainName = tl::utf16(data.vblockchainName()),
+				.blockchainName = ConvertLegacyTestBlockchainName(
+					tl::utf16(data.vblockchainName())),
 				.configUrl = ConvertLegacyUrl(tl::utf16(data.vconfigUrl())),
 				.config = tl::utf8(data.vconfig()),
 				.useCustomConfig = Deserialize(data.vuseCustomConfig())
@@ -377,7 +382,8 @@ Settings Deserialize(const TLstorage_Settings &data) {
 	}, [&](const TLDstorage_settings2 &data) {
 		return Settings{
 			.test = NetSettings{
-				.blockchainName = tl::utf16(data.vblockchainName()),
+				.blockchainName = ConvertLegacyTestBlockchainName(
+					tl::utf16(data.vblockchainName())),
 				.configUrl = ConvertLegacyUrl(tl::utf16(data.vconfigUrl())),
 				.config = tl::utf8(data.vconfig()),
 				.useCustomConfig = Deserialize(data.vuseCustomConfig())
@@ -389,8 +395,8 @@ Settings Deserialize(const TLstorage_Settings &data) {
 	}, [&](const TLDstorage_settings3 &data) {
 		return Settings{
 			.main = Deserialize(data.vmain()),
-			.test = Deserialize(data.vtest()),
-			.useTestNetwork = Deserialize(data.vuseTestNetwork()),
+			.test = Deserialize(data.vtest()), // #TODO postponed
+			.useTestNetwork = true,//Deserialize(data.vuseTestNetwork()),
 			.useNetworkCallbacks = Deserialize(data.vuseNetworkCallbacks()),
 			.version = data.vversion().v
 		};
