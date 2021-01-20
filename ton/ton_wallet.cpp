@@ -738,12 +738,12 @@ void Wallet::loadWebResource(const QString &url, Callback<QByteArray> done) {
 
 Fn<void(Update)> Wallet::generateUpdatesCallback() {
 	return [=](Update update) {
-		if (const auto sync = base::get_if<SyncState>(&update.data)) {
+		if (const auto sync = std::get_if<SyncState>(&update.data)) {
 			if (*sync == _lastSyncStateUpdate) {
 				return;
 			}
 			_lastSyncStateUpdate = *sync;
-		} else if (const auto upgrade = base::get_if<ConfigUpgrade>(
+		} else if (const auto upgrade = std::get_if<ConfigUpgrade>(
 				&update.data)) {
 			if (*upgrade == ConfigUpgrade::TestnetToMainnet) {
 				_switchedToMain = true;
